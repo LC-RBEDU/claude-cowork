@@ -12,18 +12,24 @@
       "name": "Webhook: Sembly automation",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "c9f3e2a1-4b5d-6c7e-8f9a-0b1c2d3e4f5a"
     },
     {
       "parameters": {
-        "jsCode": "// Sembly Custom Automation → normalizace payloadu (tvar se může lišit — po prvním běhu uprav pick() podle Execution data)\nfunction pick(obj, ...keys) {\n  for (const k of keys) {\n    const v = obj && obj[k];\n    if (v !== undefined && v !== null && v !== '') return v;\n  }\n  return undefined;\n}\n\nconst items = [];\nfor (const item of $input.all()) {\n  let raw = item.json.body !== undefined ? item.json.body : item.json;\n  if (typeof raw === 'string') {\n    try { raw = JSON.parse(raw); } catch (e) { raw = { _raw_text: raw }; }\n  }\n  const p = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};\n  const nested = p.meeting || p.meeting_data || p.data || {};\n  const m = { ...p, ...(typeof nested === 'object' && nested ? nested : {}) };\n\n  const title = pick(m, 'title', 'meeting_title', 'name', 'subject', 'meetingName') || 'Sembly meeting';\n  const transcript = String(pick(m, 'meeting_transcription', 'transcript', 'transcription', 'text', 'content', 'full_transcript', 'transcript_text') || '');\n  const summary = String(pick(m, 'summary', 'notes', 'description', 'ai_summary', 'meeting_summary') || '');\n  let actions = pick(m, 'action_items', 'tasks', 'actions', 'actionItems') || [];\n  if (!Array.isArray(actions)) actions = [];\n  let attendees = pick(m, 'attendees', 'participants', 'users', 'speakers') || [];\n  if (!Array.isArray(attendees)) attendees = [];\n  const startRaw = pick(m, 'start_time', 'startTime', 'date', 'created_at', 'meeting_date', 'scheduled_at') || Date.now();\n  const date = new Date(startRaw);\n  const url = pick(m, 'url', 'permalink', 'link', 'meeting_url', 'web_url') || '—';\n  const dur = pick(m, 'duration_minutes', 'duration', 'durationMinutes');\n\n  const ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\n  const slug = String(title).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').substring(0, 50);\n  const filename = `${ts}-${slug || 'meeting'}.md`;\n\n  const attLine = attendees.length\n    ? attendees.map(a => (typeof a === 'string' ? a : (a.name || a.email || JSON.stringify(a)))).join(', ')\n    : '—';\n\n  const md = [\n    `# ${title} — ${date.toLocaleDateString('cs-CZ')} ${date.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`,\n    '',\n    `**Účastníci**: ${attLine}`,\n    `**Trvání**: ${dur != null && dur !== '' ? `${dur} min` : '?'}`,\n    `**Sembly**: ${url}`,\n    '',\n    '## Shrnutí',\n    '',\n    summary || '_(prázdné)_',\n    '',\n    '## Akční body',\n    '',\n    actions.length\n      ? actions.map(a => {\n          const t = typeof a === 'string' ? a : (a.text || a.description || a.title || a.name || JSON.stringify(a));\n          return `- [ ] ${t}`;\n        }).join('\\n')\n      : '_(žádné)_',\n    '',\n    '## Plný transkript',\n    '',\n    transcript || '_(transkript v payloadu nenalezen — v Execution zkontroluj strukturu a uprav mapování v tomto Code uzlu)_',\n    ''\n  ].join('\\n');\n\n  items.push({ json: { filename, content: md } });\n}\nreturn items;"
+        "jsCode": "// Sembly Custom Automation → normalizace payloadu (tvar se může lišit — po prvním běhu uprav pick() podle Execution data)\nfunction pick(obj, ...keys) {\n  for (const k of keys) {\n    const v = obj && obj[k];\n    if (v !== undefined && v !== null && v !== '') return v;\n  }\n  return undefined;\n}\n\n/** Slug pro název souboru: NFC, zachová diakritiku, odstraní znaky nebezpečné v názvech souborů. */\nfunction filenameFriendlySlug(s, maxLen) {\n  let t = String(s || '').normalize('NFC');\n  t = t.replace(/<[^>]*>/g, ' ');\n  t = t.split('<')[0].trim();\n  t = t.replace(/^[\"'\\s]+|[\"'\\s]+$/g, '');\n  t = t.replace(/[\\u0000-\\u001f\\u007f\\\\/:?*|#\"<>%]+/g, '-');\n  t = t.replace(/\\s+/g, '-');\n  t = t.replace(/-+/g, '-').replace(/^-|-$/g, '');\n  t = t.toLocaleLowerCase('cs-CZ');\n  if (!t) t = 'unnamed';\n  if (t.length > maxLen) t = t.substring(0, maxLen).replace(/-+$/g, '');\n  return t;\n}\n\nconst items = [];\nfor (const item of $input.all()) {\n  let raw = item.json.body !== undefined ? item.json.body : item.json;\n  if (typeof raw === 'string') {\n    try { raw = JSON.parse(raw); } catch (e) { raw = { _raw_text: raw }; }\n  }\n  const p = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};\n  const nested = p.meeting || p.meeting_data || p.data || {};\n  const m = { ...p, ...(typeof nested === 'object' && nested ? nested : {}) };\n\n  const title = pick(m, 'title', 'meeting_title', 'name', 'subject', 'meetingName') || 'Sembly meeting';\n  const transcript = String(pick(m, 'meeting_transcription', 'transcript', 'transcription', 'text', 'content', 'full_transcript', 'transcript_text') || '');\n  const summary = String(pick(m, 'summary', 'notes', 'description', 'ai_summary', 'meeting_summary') || '');\n  let actions = pick(m, 'action_items', 'tasks', 'actions', 'actionItems') || [];\n  if (!Array.isArray(actions)) actions = [];\n  let attendees = pick(m, 'attendees', 'participants', 'users', 'speakers') || [];\n  if (!Array.isArray(attendees)) attendees = [];\n  const startRaw = pick(m, 'start_time', 'startTime', 'date', 'created_at', 'meeting_date', 'scheduled_at') || Date.now();\n  const date = new Date(startRaw);\n  const url = pick(m, 'url', 'permalink', 'link', 'meeting_url', 'web_url') || '—';\n  const dur = pick(m, 'duration_minutes', 'duration', 'durationMinutes');\n\n  const ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\n  const slug = filenameFriendlySlug(title, 50);\n  const filename = `${ts}-${slug || 'meeting'}.md`;\n\n  const attLine = attendees.length\n    ? attendees.map(a => (typeof a === 'string' ? a : (a.name || a.email || JSON.stringify(a)))).join(', ')\n    : '—';\n\n  const md = [\n    `# ${title} — ${date.toLocaleDateString('cs-CZ')} ${date.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`,\n    '',\n    `**Účastníci**: ${attLine}`,\n    `**Trvání**: ${dur != null && dur !== '' ? `${dur} min` : '?'}`,\n    `**Sembly**: ${url}`,\n    '',\n    '## Shrnutí',\n    '',\n    summary || '_(prázdné)_',\n    '',\n    '## Akční body',\n    '',\n    actions.length\n      ? actions.map(a => {\n          const t = typeof a === 'string' ? a : (a.text || a.description || a.title || a.name || JSON.stringify(a));\n          return `- [ ] ${t}`;\n        }).join('\\n')\n      : '_(žádné)_',\n    '',\n    '## Plný transkript',\n    '',\n    transcript || '_(transkript v payloadu nenalezen — v Execution zkontroluj strukturu a uprav mapování v tomto Code uzlu)_',\n    ''\n  ].join('\\n');\n\n  items.push({ json: { filename, content: md } });\n}\nreturn items;"
       },
       "id": "format-md-webhook",
       "name": "Format → Markdown",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [520, 300]
+      "position": [
+        520,
+        300
+      ]
     },
     {
       "parameters": {
@@ -47,7 +53,10 @@
       "name": "Drive: Save .md to INBOX/sembly/",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [800, 300],
+      "position": [
+        800,
+        300
+      ],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "REPLACE_WITH_GDRIVE_CREDENTIAL_ID",

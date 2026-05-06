@@ -31,7 +31,7 @@
 `YYYY-MM-DD-HHMM-<title-slug>.md`
 
 - `YYYY-MM-DD-HHMM` z `meeting.start_time`
-- `title-slug` = lowercase title, nealfanum → `-`, max 50 znaků
+- `title-slug` = NFC, zachová diakritiku; mezery → `-`; odstraní jen znaky nebezpečné v názvu souboru (`\ / : * ? " < > |` atd.); max 50 znaků
 
 ## Mapping Sembly fields
 

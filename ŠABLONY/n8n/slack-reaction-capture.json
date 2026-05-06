@@ -3,7 +3,9 @@
   "nodes": [
     {
       "parameters": {
-        "trigger": ["message"],
+        "trigger": [
+          "message"
+        ],
         "watchWorkspace": false,
         "channelId": {
           "__rl": true,
@@ -16,7 +18,10 @@
       "name": "Slack: nová zpráva",
       "type": "n8n-nodes-base.slackTrigger",
       "typeVersion": 1,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "credentials": {
         "slackApi": {
           "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
@@ -32,7 +37,10 @@
       "name": "Filtrovat zprávy",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -49,7 +57,10 @@
       "name": "Slack: Channel info",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "credentials": {
         "slackApi": {
           "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
@@ -59,13 +70,16 @@
     },
     {
       "parameters": {
-        "jsCode": "const pack = $('Filtrovat zprávy').first().json;\nconst e = pack.slackEvent;\nconst channelId = pack.channelId;\nconst ch = $('Slack: Channel info').first().json;\nconst channelName = ch.name || channelId || 'unknown';\n\nconst date = new Date(parseFloat(e.ts) * 1000);\nconst ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\n\nconst ownText = (e.text && String(e.text).trim()) ? String(e.text) : '';\nconst attachments = Array.isArray(e.attachments) ? e.attachments : [];\nconst forwards = attachments.filter(a => a && (a.is_msg_unfurl || a.from_url || a.text || a.fallback));\n\nconst slugSrc = ownText || (forwards[0] && (forwards[0].text || forwards[0].fallback)) || 'zprava';\nconst textSlug = String(slugSrc).replace(/[^a-z0-9 ]/gi,'').trim().replace(/\\s+/g,'-').toLowerCase().substring(0, 50);\nconst filename = `${ts}-${channelName}-${textSlug || 'slack'}.md`.substring(0, 120);\n\nconst permalink = `https://slack.com/archives/${channelId}/p${String(e.ts).replace('.','')}`;\nconst threadNote = e.thread_ts && e.thread_ts !== e.ts ? `**Odpověď ve vlákně** (thread_ts: ${e.thread_ts})` : '';\n\nconst lines = [\n  `# #${channelName}`,\n  '',\n  `**Čas:** ${date.toLocaleString('cs-CZ')}`,\n  `**Uživatel (Slack ID):** ${e.user || '—'}`,\n  threadNote,\n  `**Odkaz:** ${permalink}`,\n  ''\n];\n\nif (ownText) {\n  lines.push('## Komentář', '', ownText, '');\n}\n\nif (forwards.length) {\n  lines.push(`## Forwardovaný obsah${forwards.length > 1 ? ` (${forwards.length})` : ''}`, '');\n  for (const a of forwards) {\n    const author = a.author_name || a.author_subname || '—';\n    const srcChannel = a.channel_name ? `#${a.channel_name}` : (a.channel_id || '');\n    const srcLink = a.from_url || '';\n    const srcTs = a.ts ? new Date(parseFloat(a.ts) * 1000).toLocaleString('cs-CZ') : '';\n    const body = String(a.text || a.fallback || '').replace(/^\\u200B+/, '').trim();\n    lines.push(`### ${author}${srcChannel ? ` v ${srcChannel}` : ''}${srcTs ? ` (${srcTs})` : ''}`);\n    if (srcLink) lines.push(`**Zdroj:** ${srcLink}`);\n    lines.push('');\n    lines.push(body || '_(prázdná příloha)_');\n    lines.push('');\n  }\n}\n\nif (!ownText && !forwards.length) {\n  lines.push('## Text', '', '_(bez textu — v původní zprávě mohou být jen přílohy)_', '');\n}\n\nconst md = lines.join('\\n');\n\nreturn [{ json: { filename, content: md } }];"
+        "jsCode": "const pack = $('Filtrovat zprávy').first().json;\nconst e = pack.slackEvent;\nconst channelId = pack.channelId;\nconst ch = $('Slack: Channel info').first().json;\nconst channelName = ch.name || channelId || 'unknown';\n\nconst date = new Date(parseFloat(e.ts) * 1000);\nconst ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\n\nconst ownText = (e.text && String(e.text).trim()) ? String(e.text) : '';\nconst attachments = Array.isArray(e.attachments) ? e.attachments : [];\nconst forwards = attachments.filter(a => a && (a.is_msg_unfurl || a.from_url || a.text || a.fallback));\n\nconst slugSrc = ownText || (forwards[0] && (forwards[0].text || forwards[0].fallback)) || 'zprava';\nconst textSlug = filenameFriendlySlug(slugSrc, 50);\nconst chSlug = filenameFriendlySlug(channelName, 40);\nconst filename = `${ts}-${chSlug}-${textSlug || 'slack'}.md`.substring(0, 160);\n\nconst permalink = `https://slack.com/archives/${channelId}/p${String(e.ts).replace('.','')}`;\nconst threadNote = e.thread_ts && e.thread_ts !== e.ts ? `**Odpověď ve vlákně** (thread_ts: ${e.thread_ts})` : '';\n\nconst lines = [\n  `# #${channelName}`,\n  '',\n  `**Čas:** ${date.toLocaleString('cs-CZ')}`,\n  `**Uživatel (Slack ID):** ${e.user || '—'}`,\n  threadNote,\n  `**Odkaz:** ${permalink}`,\n  ''\n];\n\nif (ownText) {\n  lines.push('## Komentář', '', ownText, '');\n}\n\nif (forwards.length) {\n  lines.push(`## Forwardovaný obsah${forwards.length > 1 ? ` (${forwards.length})` : ''}`, '');\n  for (const a of forwards) {\n    const author = a.author_name || a.author_subname || '—';\n    const srcChannel = a.channel_name ? `#${a.channel_name}` : (a.channel_id || '');\n    const srcLink = a.from_url || '';\n    const srcTs = a.ts ? new Date(parseFloat(a.ts) * 1000).toLocaleString('cs-CZ') : '';\n    const body = String(a.text || a.fallback || '').replace(/^\\u200B+/, '').trim();\n    lines.push(`### ${author}${srcChannel ? ` v ${srcChannel}` : ''}${srcTs ? ` (${srcTs})` : ''}`);\n    if (srcLink) lines.push(`**Zdroj:** ${srcLink}`);\n    lines.push('');\n    lines.push(body || '_(prázdná příloha)_');\n    lines.push('');\n  }\n}\n\nif (!ownText && !forwards.length) {\n  lines.push('## Text', '', '_(bez textu — v původní zprávě mohou být jen přílohy)_', '');\n}\n\nconst md = lines.join('\\n');\n\nreturn [{ json: { filename, content: md } }];"
       },
       "id": "format-md",
       "name": "Format → Markdown",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     },
     {
       "parameters": {
@@ -89,7 +103,10 @@
       "name": "Drive: Save .md to INBOX/slack/",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [1080, 300],
+      "position": [
+        1080,
+        300
+      ],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "REPLACE_WITH_GDRIVE_CREDENTIAL_ID",
@@ -113,7 +130,10 @@
       "name": "Slack: ✅ reakce po uložení",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [1300, 300],
+      "position": [
+        1300,
+        300
+      ],
       "credentials": {
         "slackApi": {
           "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
@@ -125,19 +145,59 @@
   "pinData": {},
   "connections": {
     "Slack: nová zpráva": {
-      "main": [[{ "node": "Filtrovat zprávy", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Filtrovat zprávy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtrovat zprávy": {
-      "main": [[{ "node": "Slack: Channel info", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Slack: Channel info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Slack: Channel info": {
-      "main": [[{ "node": "Format → Markdown", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Format → Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Format → Markdown": {
-      "main": [[{ "node": "Drive: Save .md to INBOX/slack/", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Drive: Save .md to INBOX/slack/",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Drive: Save .md to INBOX/slack/": {
-      "main": [[{ "node": "Slack: ✅ reakce po uložení", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Slack: ✅ reakce po uložení",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,

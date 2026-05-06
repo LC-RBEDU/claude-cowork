@@ -3,43 +3,19 @@
 const TZ = 'Europe/Prague';
 const MAX_LINKED_DOCS = 10;
 
-const DEBUG_SESSION = '05abfa';
-const DEBUG_ENDPOINT = 'http://127.0.0.1:7686/ingest/acb1b378-0043-41a9-bf98-990d4ff8adb9';
-
-function debugSend(location, message, data) {
-  /* #region agent log — debug session 05abfa */
-  try {
-    const payload = {
-      sessionId: DEBUG_SESSION,
-      runId: 'n8n-email-' + Date.now(),
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    };
-    if (typeof fetch === 'function') {
-      Promise.resolve()
-        .then(() =>
-          fetch(DEBUG_ENDPOINT, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Debug-Session-Id': DEBUG_SESSION,
-            },
-            body: JSON.stringify(payload),
-          }),
-        )
-        .catch(() => {});
-    }
-  } catch (e) {
-    /* swallow */
-  }
-  /* #endregion */
-}
-
-function debugSafeUrlList(arr, n) {
-  if (!Array.isArray(arr)) return [];
-  return arr.slice(0, n).map((u) => (typeof u === 'string' ? u.substring(0, 240) : String(u)));
+/** Slug pro název souboru: NFC, zachová diakritiku (češtinu), odstraní jen znaky nebezpečné v názvech souborů. */
+function filenameFriendlySlug(s, maxLen) {
+  let t = String(s || '').normalize('NFC');
+  t = t.replace(/<[^>]*>/g, ' ');
+  t = t.split('<')[0].trim();
+  t = t.replace(/^["'\s]+|["'\s]+$/g, '');
+  t = t.replace(/[\u0000-\u001f\u007f\\/:?*|#"<>%]+/g, '-');
+  t = t.replace(/\s+/g, '-');
+  t = t.replace(/-+/g, '-').replace(/^-|-$/g, '');
+  t = t.toLocaleLowerCase('cs-CZ');
+  if (!t) t = 'unnamed';
+  if (t.length > maxLen) t = t.substring(0, maxLen).replace(/-+$/g, '');
+  return t;
 }
 
 function pragueFilenameTs(date) {
@@ -218,23 +194,16 @@ for (const item of $input.all()) {
 
   const fromText = addrToText(e.from) || addrToText(e.headers && e.headers.from) || 'unknown';
   const toText = addrToText(e.to) || addrToText(e.headers && e.headers.to) || '';
-  const fromSlug =
-    fromText
-      .replace(/<[^>]+>/g, '')
-      .replace(/[^a-z0-9 ]/gi, '')
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .join('-')
-      .toLowerCase() || 'unknown';
-  const subject = (e.subject && String(e.subject).trim()) || 'no-subject';
-  const subjectSlug = subject
-    .replace(/^(Re:|Fwd:|FW:|RE:|FWD:)\s*/gi, '')
-    .replace(/[^a-z0-9 ]/gi, '')
+  const fromDisplay = String(fromText)
+    .split('<')[0]
+    .replace(/<[^>]+>/g, '')
     .trim()
-    .replace(/\s+/g, '-')
-    .toLowerCase()
-    .substring(0, 50);
+    .replace(/^["']|["']$/g, '');
+  const fromWords = fromDisplay.split(/\s+/).filter(Boolean).slice(0, 2).join(' ');
+  const fromSlug = filenameFriendlySlug(fromWords || 'unknown', 40);
+  const subject = (e.subject && String(e.subject).trim()) || 'no-subject';
+  const subjectClean = subject.replace(/^(Re:|Fwd:|FW:|RE:|FWD:)\s*/gi, '').trim();
+  const subjectSlug = filenameFriendlySlug(subjectClean, 80);
   const filename = `${ts}-${fromSlug}-${subjectSlug || 'no-subject'}.md`;
 
   const plain = e.text && String(e.text).trim();
@@ -277,35 +246,6 @@ for (const item of $input.all()) {
     }
   }
 
-  /* #region agent log — debug session 05abfa */
-  const __dbgPre = {
-    eKeys: e && typeof e === 'object' ? Object.keys(e).slice(0, 40) : [],
-    hasText: !!plain,
-    hasHtmlRaw: !!htmlRaw,
-    hasSnippet: !!snippet,
-    plainLen: plain ? plain.length : 0,
-    htmlRawLen: htmlRaw ? String(htmlRaw).length : 0,
-    htmlTextLen: htmlText ? htmlText.length : 0,
-    snippetLen: snippet ? snippet.length : 0,
-    hrefsCount: hrefs.length,
-    saferedirectCount: safeUrls.length,
-    linksAfterExpandCount: links.length,
-    firstHrefs: debugSafeUrlList(hrefs, 6),
-    firstSafeUrls: debugSafeUrlList(safeUrls, 6),
-    firstLinks: debugSafeUrlList(links, 10),
-    fileRefIds: fileRefs.map((r) => r.id),
-    firstRefId: firstRef ? firstRef.id : '',
-    subject,
-    fromText,
-    gmailMsgId: e.id || null,
-    binaryKeys: item.binary ? Object.keys(item.binary) : [],
-  };
-  debugSend(
-    'email-to-cowork:Format → Markdown:after-parse',
-    'Parsed email diagnostics',
-    __dbgPre,
-  );
-  /* #endregion */
 
   const lines = [
     `# Email: ${subject}`,
@@ -338,13 +278,6 @@ for (const item of $input.all()) {
     lines.push('');
   }
 
-  /* #region agent log — debug session 05abfa */
-  lines.push('## Diagnostika 05abfa', '');
-  lines.push('```json');
-  lines.push(JSON.stringify({ pre: __dbgPre }, null, 2));
-  lines.push('```');
-  lines.push('');
-  /* #endregion */
 
   const md = lines.join('\n');
 
@@ -354,7 +287,6 @@ for (const item of $input.all()) {
       content: md,
       firstRefId: firstRef ? firstRef.id : '',
       firstRefUrl: firstRef ? firstRef.sourceUrl : '',
-      _debug: { pre: __dbgPre },
       _meta: {
         hasHtml: !!htmlRaw,
         hasText: !!plain,
