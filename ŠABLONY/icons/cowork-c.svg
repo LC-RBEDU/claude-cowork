@@ -1,0 +1,9 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background: warm clay -->
+  <rect width="128" height="128" rx="24" fill="#D97757"/>
+
+  <!-- Bold "C" drawn as a stroked arc (path-based, no font dependency) -->
+  <path d="M 96 42 Q 80 26, 60 26 Q 30 26, 30 64 Q 30 102, 60 102 Q 80 102, 96 86"
+        stroke="white" stroke-width="20" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

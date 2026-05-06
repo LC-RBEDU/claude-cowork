@@ -1,0 +1,134 @@
+{
+  "name": "Slack reakce :cowork: → Cowork INBOX",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": ["reaction_added"],
+        "watchWorkspace": false,
+        "options": {
+          "reactionFilter": "cowork"
+        }
+      },
+      "id": "slack-trigger",
+      "name": "Slack: reakce :cowork: (Socket Mode)",
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getReplies",
+        "channelId": "={{ $json.item.channel }}",
+        "ts": "={{ $json.item.ts }}",
+        "options": {
+          "inclusive": true
+        }
+      },
+      "id": "get-thread",
+      "name": "Slack: Get thread",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [420, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "channel",
+        "operation": "info",
+        "channelId": "={{ $('Slack: reakce :cowork: (Socket Mode)').item.json.item.channel }}"
+      },
+      "id": "get-channel",
+      "name": "Slack: Channel info",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [640, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Slack: reakce :cowork: (Socket Mode)').first().json;\nconst messages = $('Slack: Get thread').all().map(i => i.json);\nconst channel = $('Slack: Channel info').first().json;\n\nconst channelName = channel.name || 'unknown';\nconst rootMsg = messages[0] || {};\nconst rootText = (rootMsg.text || '').substring(0, 60).replace(/[^a-z0-9 ]/gi,'').trim().replace(/\\s+/g,'-').toLowerCase();\n\nconst date = new Date((parseFloat(rootMsg.ts || (Date.now()/1000)))*1000);\nconst ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\nconst filename = `${ts}-${channelName}-${rootText || 'msg'}.md`.substring(0, 120);\n\nconst messageLink = `https://slack.com/archives/${trigger.item.channel}/p${(rootMsg.ts || '').replace('.','')}`;\n\nconst md = [\n  `# #${channelName} — ${date.toLocaleDateString('cs-CZ')} ${date.toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}`,\n  '',\n  `**Odkaz:** ${messageLink}`,\n  `**Reakce :cowork: od:** ${trigger.user || '?'}`,\n  `**Zpráv ve vlákně:** ${messages.length}`,\n  '',\n  '## Zprávy',\n  '',\n  ...messages.map(m => {\n    const mDate = new Date(parseFloat(m.ts || 0)*1000).toLocaleString('cs-CZ');\n    return `### ${m.user || m.username || '?'} — ${mDate}\\n\\n${m.text || ''}\\n`;\n  }),\n  ''\n].join('\\n');\n\nreturn [{ json: { filename, content: md } }];"
+      },
+      "id": "format-md",
+      "name": "Format → Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "createFromText",
+        "content": "={{ $json.content }}",
+        "name": "={{ $json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm"
+        },
+        "options": {}
+      },
+      "id": "save-to-drive",
+      "name": "Drive: Save .md to INBOX/slack/",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1080, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "IKFHnIw3Csp8FHyI",
+          "name": "Google Drive account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack: reakce :cowork: (Socket Mode)": {
+      "main": [[{ "node": "Slack: Get thread", "type": "main", "index": 0 }]]
+    },
+    "Slack: Get thread": {
+      "main": [[{ "node": "Slack: Channel info", "type": "main", "index": 0 }]]
+    },
+    "Slack: Channel info": {
+      "main": [[{ "node": "Format → Markdown", "type": "main", "index": 0 }]]
+    },
+    "Format → Markdown": {
+      "main": [[{ "node": "Drive: Save .md to INBOX/slack/", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "_NOTES_FOR_LUKAS": [
+    "Slack: slack-app-setup-checklist.md; REPLACE_WITH_SLACK_CREDENTIAL_ID → tvůj Slack API credential v n8n",
+    "Google Drive: účet Google Drive account 2 (stejné jako e-mail / Sembly)",
+    "Drive folderId: 1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm — driveId = My Drive nebo shared drive v UI",
+    "Po importu: přiřaž credentials, nastav folderId, aktivuj workflow"
+  ]
+}

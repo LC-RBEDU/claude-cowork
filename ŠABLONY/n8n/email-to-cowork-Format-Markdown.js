@@ -1,0 +1,374 @@
+// Gmail Trigger: Simplify = OFF (simple: false).
+// Drive fetch JE V DOWNSTREAM uzlech (Code node sandbox blokuje httpRequestWithAuthentication).
+const TZ = 'Europe/Prague';
+const MAX_LINKED_DOCS = 10;
+
+const DEBUG_SESSION = '05abfa';
+const DEBUG_ENDPOINT = 'http://127.0.0.1:7686/ingest/acb1b378-0043-41a9-bf98-990d4ff8adb9';
+
+function debugSend(location, message, data) {
+  /* #region agent log — debug session 05abfa */
+  try {
+    const payload = {
+      sessionId: DEBUG_SESSION,
+      runId: 'n8n-email-' + Date.now(),
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    };
+    if (typeof fetch === 'function') {
+      Promise.resolve()
+        .then(() =>
+          fetch(DEBUG_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Debug-Session-Id': DEBUG_SESSION,
+            },
+            body: JSON.stringify(payload),
+          }),
+        )
+        .catch(() => {});
+    }
+  } catch (e) {
+    /* swallow */
+  }
+  /* #endregion */
+}
+
+function debugSafeUrlList(arr, n) {
+  if (!Array.isArray(arr)) return [];
+  return arr.slice(0, n).map((u) => (typeof u === 'string' ? u.substring(0, 240) : String(u)));
+}
+
+function pragueFilenameTs(date) {
+  const dtf = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = {};
+  for (const { type, value } of dtf.formatToParts(date)) {
+    if (type !== 'literal') parts[type] = value;
+  }
+  return `${parts.year}-${parts.month}-${parts.day}-${parts.hour}${parts.minute}`;
+}
+
+function addrToText(v) {
+  if (!v) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') {
+    if (v.text) return v.text;
+    if (Array.isArray(v)) return v.map(addrToText).filter(Boolean).join(', ');
+    if (Array.isArray(v.value)) {
+      return v.value.map((x) => x && (x.address || x.name)).filter(Boolean).join(', ');
+    }
+  }
+  return '';
+}
+
+function htmlToText(html) {
+  if (html == null) return '';
+  const s =
+    typeof html === 'string'
+      ? html
+      : html && typeof html.toString === 'function'
+        ? html.toString()
+        : '';
+  if (!s) return '';
+  return s
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<br\s*\/?>(?=)/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+function extractGoogleLinks(text) {
+  if (!text) return [];
+  const s = String(text);
+  const patterns = [
+    /https?:\/\/(?:docs|drive|sheets|slides|forms|sites|meet)\.google\.com\/[^\s"'<>\)\]]+/gi,
+    /https?:\/\/drive\.google\.com\/open\?[^\s"'<>\)\]]+/gi,
+  ];
+  const all = [];
+  for (const re of patterns) {
+    const m = s.match(re) || [];
+    all.push(...m);
+  }
+  return Array.from(new Set(all.map((u) => u.replace(/[).,;]+$/, ''))));
+}
+
+function extractHrefsFromHtml(html) {
+  if (!html) return [];
+  const s = String(html);
+  const hrefs = [];
+  const re = /href\s*=\s*["']([^"']+)["']/gi;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    hrefs.push(m[1].replace(/&amp;/g, '&'));
+  }
+  return hrefs;
+}
+
+function extractSaferedirectUrls(html) {
+  if (!html) return [];
+  const s = String(html);
+  const out = [];
+  const re = /data-saferedirecturl\s*=\s*["']([^"']+)["']/gi;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    out.push(m[1].replace(/&amp;/g, '&'));
+  }
+  return out;
+}
+
+function expandRedirectUrls(urls) {
+  const seen = new Set();
+  const out = [];
+  for (const u of urls || []) {
+    if (u && !seen.has(u)) {
+      seen.add(u);
+      out.push(u);
+    }
+    if (!u || typeof u !== 'string') continue;
+    try {
+      if (!/google\.(?:com|[a-z]{2,3})\/url\?/i.test(u)) continue;
+      const parsed = new URL(u);
+      for (const key of ['q', 'url']) {
+        const inner = parsed.searchParams.get(key);
+        if (!inner) continue;
+        let dec = inner;
+        try {
+          dec = decodeURIComponent(inner);
+        } catch (e) {
+          dec = inner;
+        }
+        if (/^https?:\/\//i.test(dec) && !seen.has(dec)) {
+          seen.add(dec);
+          out.push(dec);
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  return out;
+}
+
+function extractDriveFileIds(urls) {
+  const seen = new Set();
+  const out = [];
+  const patterns = [
+    /\/document\/d\/([a-zA-Z0-9_-]+)/,
+    /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/,
+    /\/presentation\/d\/([a-zA-Z0-9_-]+)/,
+    /\/forms\/d\/([a-zA-Z0-9_-]+)/,
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+  ];
+  for (const url of urls || []) {
+    for (const re of patterns) {
+      const m = String(url).match(re);
+      if (m && m[1] && !seen.has(m[1])) {
+        seen.add(m[1]);
+        out.push({ id: m[1], sourceUrl: url });
+      }
+    }
+  }
+  return out;
+}
+
+function binaryAttachmentList(binary) {
+  if (!binary || typeof binary !== 'object') return [];
+  return Object.keys(binary).map((k) => {
+    const b = binary[k];
+    const name = (b && b.fileName) || k;
+    const mime = (b && b.mimeType) || '';
+    return { key: k, name, mime };
+  });
+}
+
+const items = [];
+for (const item of $input.all()) {
+  const e = item.json;
+
+  const dateMs = e.internalDate
+    ? parseInt(String(e.internalDate), 10)
+    : e.date
+      ? new Date(e.date).getTime()
+      : Date.now();
+  const date = new Date(dateMs);
+  const ts = pragueFilenameTs(date);
+
+  const fromText = addrToText(e.from) || addrToText(e.headers && e.headers.from) || 'unknown';
+  const toText = addrToText(e.to) || addrToText(e.headers && e.headers.to) || '';
+  const fromSlug =
+    fromText
+      .replace(/<[^>]+>/g, '')
+      .replace(/[^a-z0-9 ]/gi, '')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .join('-')
+      .toLowerCase() || 'unknown';
+  const subject = (e.subject && String(e.subject).trim()) || 'no-subject';
+  const subjectSlug = subject
+    .replace(/^(Re:|Fwd:|FW:|RE:|FWD:)\s*/gi, '')
+    .replace(/[^a-z0-9 ]/gi, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase()
+    .substring(0, 50);
+  const filename = `${ts}-${fromSlug}-${subjectSlug || 'no-subject'}.md`;
+
+  const plain = e.text && String(e.text).trim();
+  const htmlRaw = e.html != null ? e.html : e.textAsHtml || '';
+  const htmlText = htmlToText(htmlRaw);
+  const snippet = e.snippet && String(e.snippet).trim();
+  let body = plain || htmlText;
+  if (!body && snippet) {
+    body =
+      snippet +
+      '\n\n_(jen Gmail snippet — máš zapnutý Simplify u Gmail triggeru? Vypni ho pro plné tělo.)_';
+  }
+  if (!body) body = '_(prázdné tělo — ověř Simplify=OFF)_';
+
+  const hrefs = extractHrefsFromHtml(htmlRaw);
+  const safeUrls = extractSaferedirectUrls(htmlRaw);
+  const headerBlob =
+    e.headers && typeof e.headers === 'object'
+      ? JSON.stringify(e.headers).substring(0, 12000)
+      : '';
+  const haystackForLinks = `${plain || ''}\n${String(htmlRaw || '')}\n${hrefs.join('\n')}\n${safeUrls.join('\n')}\n${subject}\n${snippet || ''}\n${headerBlob}`;
+  let links = extractGoogleLinks(haystackForLinks);
+  links = expandRedirectUrls(links);
+  const fileRefs = extractDriveFileIds(links).slice(0, MAX_LINKED_DOCS);
+
+  const firstRef = fileRefs.length ? fileRefs[0] : null;
+
+  const TOPIC_KEYWORDS = {
+    'rb-universe': ['rb universe', 'rebel', 'pgvector', 'pipedrive', 'fio', 'fakturoid'],
+    'ceo-reporting': ['ceo', 'reporting', 'dashboard', 'mixpanel', 'sales review'],
+    'finance-procesy': ['fakturace', 'finance', 'účetní', 'allfred'],
+    'interni-pravidla': ['cesťák', 'cesťáky', 'výdaje', 'platby kartou', 'evidence'],
+  };
+  const haystack = (subject + ' ' + body).toLowerCase();
+  let suggestedTopic = null;
+  for (const [topic, kws] of Object.entries(TOPIC_KEYWORDS)) {
+    if (kws.some((k) => haystack.includes(k))) {
+      suggestedTopic = topic;
+      break;
+    }
+  }
+
+  /* #region agent log — debug session 05abfa */
+  const __dbgPre = {
+    eKeys: e && typeof e === 'object' ? Object.keys(e).slice(0, 40) : [],
+    hasText: !!plain,
+    hasHtmlRaw: !!htmlRaw,
+    hasSnippet: !!snippet,
+    plainLen: plain ? plain.length : 0,
+    htmlRawLen: htmlRaw ? String(htmlRaw).length : 0,
+    htmlTextLen: htmlText ? htmlText.length : 0,
+    snippetLen: snippet ? snippet.length : 0,
+    hrefsCount: hrefs.length,
+    saferedirectCount: safeUrls.length,
+    linksAfterExpandCount: links.length,
+    firstHrefs: debugSafeUrlList(hrefs, 6),
+    firstSafeUrls: debugSafeUrlList(safeUrls, 6),
+    firstLinks: debugSafeUrlList(links, 10),
+    fileRefIds: fileRefs.map((r) => r.id),
+    firstRefId: firstRef ? firstRef.id : '',
+    subject,
+    fromText,
+    gmailMsgId: e.id || null,
+    binaryKeys: item.binary ? Object.keys(item.binary) : [],
+  };
+  debugSend(
+    'email-to-cowork:Format → Markdown:after-parse',
+    'Parsed email diagnostics',
+    __dbgPre,
+  );
+  /* #endregion */
+
+  const lines = [
+    `# Email: ${subject}`,
+    '',
+    `**From**: ${fromText}`,
+    `**To**: ${toText}`,
+    `**Date**: ${date.toLocaleString('cs-CZ', { timeZone: TZ })}`,
+    `**Suggested topic**: ${suggestedTopic || '(nerozpoznáno)'}`,
+    `**Gmail message ID**: ${e.id || ''}`,
+    '',
+  ];
+
+  if (links.length) {
+    lines.push('## Shared links (Google Drive / Docs)', '');
+    for (const u of links) lines.push('- ' + u);
+    lines.push('');
+  }
+
+  lines.push('## Tělo', '', body, '');
+
+  const binList = binaryAttachmentList(item.binary);
+  if (binList.length) {
+    lines.push('## Přílohy (stažené v n8n)', '');
+    for (const a of binList) {
+      let row = '- ' + a.name;
+      if (a.mime) row += ' (' + a.mime + ')';
+      row += ' — binární klíč: ' + a.key;
+      lines.push(row);
+    }
+    lines.push('');
+  }
+
+  /* #region agent log — debug session 05abfa */
+  lines.push('## Diagnostika 05abfa', '');
+  lines.push('```json');
+  lines.push(JSON.stringify({ pre: __dbgPre }, null, 2));
+  lines.push('```');
+  lines.push('');
+  /* #endregion */
+
+  const md = lines.join('\n');
+
+  const row = {
+    json: {
+      filename,
+      content: md,
+      firstRefId: firstRef ? firstRef.id : '',
+      firstRefUrl: firstRef ? firstRef.sourceUrl : '',
+      _debug: { pre: __dbgPre },
+      _meta: {
+        hasHtml: !!htmlRaw,
+        hasText: !!plain,
+        usedSnippetFallback: !plain && !htmlText && !!snippet,
+        linkCount: links.length,
+        binaryCount: binList.length,
+        firstRefId: firstRef ? firstRef.id : '',
+      },
+    },
+  };
+  if (item.binary && Object.keys(item.binary).length) {
+    row.binary = item.binary;
+  }
+  items.push(row);
+}
+
+return items;

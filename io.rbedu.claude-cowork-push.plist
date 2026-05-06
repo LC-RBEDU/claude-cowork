@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.rbedu.claude-cowork-push</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/lukascypra/.local/bin/claude-cowork-push.sh</string>
+  </array>
+
+  <key>WatchPaths</key>
+  <array>
+    <string>/Users/lukascypra/Documents/Claude/Artifacts</string>
+  </array>
+
+  <key>StandardOutPath</key>
+  <string>/Users/lukascypra/Library/Logs/claude-cowork-push.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/lukascypra/Library/Logs/claude-cowork-push.log</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/lukascypra/Documents/Claude/Artifacts</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

@@ -1,0 +1,8 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background: warm clay -->
+  <rect width="128" height="128" rx="24" fill="#D97757"/>
+
+  <!-- Bookmark/flag shape pointing down — symbolizuje "uloženo, vrátím se k tomu" -->
+  <path d="M 38 24 H 90 V 102 L 64 84 L 38 102 Z"
+        fill="white"/>
+</svg>

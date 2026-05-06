@@ -1,0 +1,161 @@
+{
+  "name": "Slack capture kanál → Cowork INBOX",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": ["message"],
+        "watchWorkspace": false,
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_PRIVATE_CAPTURE_CHANNEL_ID"
+        },
+        "options": {}
+      },
+      "id": "slack-trigger",
+      "name": "Slack: nová zpráva",
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Jen běžné zprávy s obsahem; přeskočí systémové subtype a prázdné pingy\nconst raw = $input.first().json;\nconst ev = raw.event || raw;\nif (!ev || (ev.type && ev.type !== 'message')) return [];\nconst skip = new Set([\n  'channel_join', 'channel_leave', 'group_join', 'message_changed', 'message_deleted',\n  'channel_topic', 'channel_purpose', 'channel_archive', 'channel_unarchive',\n  'pinned_item', 'unpinned_item', 'file_comment'\n]);\nif (ev.subtype && skip.has(ev.subtype)) return [];\nif (ev.subtype === 'bot_message') return [];\nif (!ev.channel) return [];\nconst hasText = ev.text && String(ev.text).trim().length > 0;\nconst hasFiles = ev.files && ev.files.length > 0;\nconst hasAttachments = Array.isArray(ev.attachments) && ev.attachments.length > 0;\nif (!hasText && !hasFiles && !hasAttachments) return [];\nreturn [{ json: { channelId: ev.channel, slackEvent: ev } }];"
+      },
+      "id": "code-filter",
+      "name": "Filtrovat zprávy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "resource": "channel",
+        "operation": "get",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.channelId }}"
+        },
+        "options": {}
+      },
+      "id": "get-channel",
+      "name": "Slack: Channel info",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [640, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pack = $('Filtrovat zprávy').first().json;\nconst e = pack.slackEvent;\nconst channelId = pack.channelId;\nconst ch = $('Slack: Channel info').first().json;\nconst channelName = ch.name || channelId || 'unknown';\n\nconst date = new Date(parseFloat(e.ts) * 1000);\nconst ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\n\nconst ownText = (e.text && String(e.text).trim()) ? String(e.text) : '';\nconst attachments = Array.isArray(e.attachments) ? e.attachments : [];\nconst forwards = attachments.filter(a => a && (a.is_msg_unfurl || a.from_url || a.text || a.fallback));\n\nconst slugSrc = ownText || (forwards[0] && (forwards[0].text || forwards[0].fallback)) || 'zprava';\nconst textSlug = String(slugSrc).replace(/[^a-z0-9 ]/gi,'').trim().replace(/\\s+/g,'-').toLowerCase().substring(0, 50);\nconst filename = `${ts}-${channelName}-${textSlug || 'slack'}.md`.substring(0, 120);\n\nconst permalink = `https://slack.com/archives/${channelId}/p${String(e.ts).replace('.','')}`;\nconst threadNote = e.thread_ts && e.thread_ts !== e.ts ? `**Odpověď ve vlákně** (thread_ts: ${e.thread_ts})` : '';\n\nconst lines = [\n  `# #${channelName}`,\n  '',\n  `**Čas:** ${date.toLocaleString('cs-CZ')}`,\n  `**Uživatel (Slack ID):** ${e.user || '—'}`,\n  threadNote,\n  `**Odkaz:** ${permalink}`,\n  ''\n];\n\nif (ownText) {\n  lines.push('## Komentář', '', ownText, '');\n}\n\nif (forwards.length) {\n  lines.push(`## Forwardovaný obsah${forwards.length > 1 ? ` (${forwards.length})` : ''}`, '');\n  for (const a of forwards) {\n    const author = a.author_name || a.author_subname || '—';\n    const srcChannel = a.channel_name ? `#${a.channel_name}` : (a.channel_id || '');\n    const srcLink = a.from_url || '';\n    const srcTs = a.ts ? new Date(parseFloat(a.ts) * 1000).toLocaleString('cs-CZ') : '';\n    const body = String(a.text || a.fallback || '').replace(/^\\u200B+/, '').trim();\n    lines.push(`### ${author}${srcChannel ? ` v ${srcChannel}` : ''}${srcTs ? ` (${srcTs})` : ''}`);\n    if (srcLink) lines.push(`**Zdroj:** ${srcLink}`);\n    lines.push('');\n    lines.push(body || '_(prázdná příloha)_');\n    lines.push('');\n  }\n}\n\nif (!ownText && !forwards.length) {\n  lines.push('## Text', '', '_(bez textu — v původní zprávě mohou být jen přílohy)_', '');\n}\n\nconst md = lines.join('\\n');\n\nreturn [{ json: { filename, content: md } }];"
+      },
+      "id": "format-md",
+      "name": "Format → Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "createFromText",
+        "content": "={{ $json.content }}",
+        "name": "={{ $json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm"
+        },
+        "options": {}
+      },
+      "id": "save-to-drive",
+      "name": "Drive: Save .md to INBOX/slack/",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1080, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "IKFHnIw3Csp8FHyI",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "reaction",
+        "operation": "add",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Filtrovat zprávy').first().json.channelId }}"
+        },
+        "timestamp": "={{ $('Filtrovat zprávy').first().json.slackEvent.ts }}",
+        "name": "white_check_mark"
+      },
+      "id": "slack-react-saved",
+      "name": "Slack: ✅ reakce po uložení",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [1300, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack: nová zpráva": {
+      "main": [[{ "node": "Filtrovat zprávy", "type": "main", "index": 0 }]]
+    },
+    "Filtrovat zprávy": {
+      "main": [[{ "node": "Slack: Channel info", "type": "main", "index": 0 }]]
+    },
+    "Slack: Channel info": {
+      "main": [[{ "node": "Format → Markdown", "type": "main", "index": 0 }]]
+    },
+    "Format → Markdown": {
+      "main": [[{ "node": "Drive: Save .md to INBOX/slack/", "type": "main", "index": 0 }]]
+    },
+    "Drive: Save .md to INBOX/slack/": {
+      "main": [[{ "node": "Slack: ✅ reakce po uložení", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "_NOTES_FOR_LUKAS": [
+    "Soubor slack-reaction-capture.json — historický název; workflow teď NENÍ na reakce, ale na nové zprávy v jednom vybraném kanálu (typicky soukromý #capture).",
+    "V n8n nastav channelId na ID toho kanálu (z URL / Channel details). Watch Whole Workspace = false.",
+    "Slack app: Event Subscriptions → Bot events přidej message.groups (soukromý kanál) a případně message.channels (veřejný). reaction_added už nepotřebuješ.",
+    "Scopes: channels:history + groups:history + groups:read + channels:read + reactions:write (poslední pro ✅ po uložení). Po přidání nového scope vždy Reinstall to Workspace.",
+    "Slack capture musí mít Socket Mode VYPNUTÝ a Event Subscriptions Request URL = Production webhook URL z uzlu Slack: nová zpráva.",
+    "REPLACE_WITH_PRIVATE_CAPTURE_CHANNEL_ID — ID Slack capture kanálu (C…). Drive: 1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm. Google Drive account 2.",
+    "Filtrovat zprávy: vyřazuje systémové subtype a bot_message; uprav podle potřeby.",
+    "Po Drive zápisu uzel 'Slack: ✅ reakce po uložení' přidá :white_check_mark: k původní zprávě jako vizuální potvrzení uložení."
+  ]
+}
