@@ -2,28 +2,31 @@
 {
   "name": "Q1q2 Triaz",
   "schemaVersion": 1,
-  "description": "Task list — úkoly dle ASAP/Next/Backlog, seřazené ICE skóre. Deadline barevně, projekt jako sekundární info."
+  "description": "Úkoly seřazené primárně dle priority (ASAP / Next / Backlog) a v rámci ní dle ICE skóre (Impact × Confidence × Ease). Projekt jako sekundární info. Aktualizuje se po každé triáži."
 }
 </script>
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Task list</title>
+<title>Triáž priorit</title>
 <style>
 :root{color-scheme:light}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f6f3;color:#1a1a18;font-size:14px;padding:16px 18px 48px}
 
+/* topbar */
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .tit{font-size:12px;font-weight:600;color:#999;letter-spacing:.07em;text-transform:uppercase}
 .stats{display:flex;gap:16px}
 .sn{font-size:19px;font-weight:600;line-height:1;text-align:center}
 .sl{font-size:10px;color:#bbb;margin-top:2px;text-align:center}
 
+/* ICE legend */
 .ice-legend{font-size:11px;color:#aaa;background:#fff;border:.5px solid #e8e5de;border-radius:8px;padding:5px 10px;margin-bottom:14px;display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ice-legend b{color:#555;font-weight:600}
 
+/* filter tabs */
 .filters{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
 .ftab{font-size:12px;font-weight:500;padding:5px 13px;border-radius:99px;border:1.5px solid #d8d5ce;color:#666;background:#fff;cursor:pointer;transition:all .12s}
 .ftab:hover{border-color:#b0ada5}
@@ -32,7 +35,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .ftab.active-next{background:#BA7517;color:#fff;border-color:#BA7517}
 .ftab.active-backlog{background:#7a7872;color:#fff;border-color:#7a7872}
 
+/* priority section */
 .section{margin-bottom:20px}
+.section.hidden{display:none}
 .sec-header{display:flex;align-items:center;gap:9px;margin-bottom:9px}
 .sec-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:.04em}
 .asap-pill{background:#FCEBEB;color:#A32D2D;border:1px solid #f0c0bf}
@@ -41,40 +46,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .sec-count{font-size:11px;color:#bbb}
 .sec-line{flex:1;height:.5px;background:#e0ddd5}
 
-/* task card */
+/* task cards */
 .task{background:#fff;border-radius:10px;border:.5px solid #e0ddd5;margin-bottom:7px;overflow:hidden;transition:border-color .1s}
 .task:hover{border-color:#c8c4bc}
 .task-main{display:flex;align-items:flex-start;gap:10px;padding:10px 13px;cursor:pointer;user-select:none}
 .task-body{flex:1;min-width:0}
-
-/* task name row */
-.task-name-row{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:5px}
-.task-name{font-size:13px;font-weight:500;line-height:1.35}
-.dl-future{font-size:11px;font-weight:500;color:#1A68B0;white-space:nowrap}
-.dl-past{font-size:11px;font-weight:600;color:#C0392B;white-space:nowrap}
-
-/* meta row: ID (prominent) + ICE (subtle) + project */
-.task-meta-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-
-/* ID — prominent, like old ICE */
-.task-id{font-size:13px;font-weight:700;color:#1a1a18;font-family:"SF Mono",monospace;letter-spacing:.02em}
-
-.meta-sep{font-size:11px;color:#ddd}
-
-/* ICE — subtle, like old ID */
-.ice-subtle{font-size:10px;color:#bbb;font-family:"SF Mono",monospace;display:flex;align-items:center;gap:4px}
-.ice-subtle-score{color:#aaa;font-weight:600}
-.ice-subtle-parts{display:flex;gap:5px}
-.ice-p{display:flex;gap:1px}
-.ice-p span:first-child{color:#ccc}
-.ice-p span:last-child{color:#999}
-
-/* project badge */
-.proj-badge{font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;white-space:nowrap}
+.task-top{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.task-name{font-size:13px;font-weight:500;line-height:1.35;flex:1;min-width:0}
+.proj-badge{font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;white-space:nowrap;flex-shrink:0;margin-top:1px}
 .acc-r{background:#FCEBEB;color:#A32D2D}
 .acc-am{background:#FAEEDA;color:#854F0B}
 .acc-te{background:#E1F5EE;color:#0F6E56}
 .acc-gr{background:#F1EFE8;color:#5F5E5A}
+
+/* ICE display */
+.ice-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ice-score{font-size:12px;font-weight:700;color:#1a1a18;font-family:"SF Mono",monospace}
+.ice-sep{font-size:11px;color:#ddd}
+.ice-parts{font-size:10px;color:#aaa;font-family:"SF Mono",monospace;display:flex;gap:6px}
+.ice-part{display:flex;align-items:center;gap:2px}
+.ice-part span:first-child{color:#bbb;font-weight:500}
+.ice-part span:last-child{color:#777;font-weight:600}
+.tid{font-size:9px;color:#ccc;font-family:"SF Mono",monospace;margin-right:4px}
 
 /* expand toggle */
 .toggle-icon{font-size:11px;color:#ccc;flex-shrink:0;margin-top:2px;transition:transform .15s}
@@ -90,6 +83,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .ch-done{color:#bbb;text-decoration:line-through}
 .no-ch{font-size:11px;color:#ccc;padding:6px 0}
 
+/* ICE note */
 .ice-note{font-size:11px;color:#bbb;text-align:center;margin-top:20px}
 .updated{font-size:11px;color:#ccc;text-align:center;margin-top:6px}
 </style>
@@ -97,7 +91,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 <body>
 
 <div class="topbar">
-  <span class="tit">Task list</span>
+  <span class="tit">Triáž priorit</span>
   <div class="stats">
     <div><div class="sn" id="cnt-asap">0</div><div class="sl">ASAP</div></div>
     <div><div class="sn" id="cnt-next">0</div><div class="sl">Next</div></div>
@@ -110,10 +104,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 </div>
 
 <div class="filters">
-  <button class="ftab active-all" onclick="setFilter('all',this)">Vše</button>
-  <button class="ftab" onclick="setFilter('ASAP',this)">ASAP</button>
-  <button class="ftab" onclick="setFilter('Next',this)">Next</button>
-  <button class="ftab" onclick="setFilter('Backlog',this)">Backlog</button>
+  <button class="ftab active-all" id="tab-all" onclick="setFilter('all',this)">Vše</button>
+  <button class="ftab" id="tab-asap" onclick="setFilter('ASAP',this)">ASAP</button>
+  <button class="ftab" id="tab-next" onclick="setFilter('Next',this)">Next</button>
+  <button class="ftab" id="tab-backlog" onclick="setFilter('Backlog',this)">Backlog</button>
 </div>
 
 <div id="board"></div>
@@ -122,196 +116,187 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 <div class="updated">Triáž: 6. 5. 2026</div>
 
 <script>
-// dl = deadline (ISO date string, optional)
+// priority, id, name, project key, ice:{i,c,e}, checklist
 const TASKS = [
   // ── ASAP ──────────────────────────────────────────────
-  {p:"ASAP", id:"O3", name:"Projít Plaud transcript + ověřit follow-up od Honzy", proj:"ma-odyssey", dl:null,
+  {p:"ASAP", id:"O3", name:"Projít Plaud transcript + ověřit follow-up od Honzy", proj:"ma-odyssey",
    ice:{i:9,c:9,e:7}, ch:[
      {t:"Přečíst Plaud přepis z jednání s Lokajíčkem",d:false},
      {t:"Porovnat s O1 — doplnit nové detaily",d:false},
      {t:"Ověřit, zda Honza odeslal follow-up",d:false}]},
-  {p:"ASAP", id:"F1", name:"Alokace nákladů na projekty (utilizace)", proj:"firemni-procesy", dl:"2026-05-03",
+  {p:"ASAP", id:"F1", name:"Alokace nákladů na projekty (utilizace)", proj:"firemni-procesy",
    ice:{i:7,c:8,e:7}, ch:[
      {t:"Rozeslat pokyn k utilizaci — vykazovat na projekty (3. 5.)",d:true},
      {t:"Ověřit, že Dominik nastaví technicky v Alfrédu",d:false}]},
-  {p:"ASAP", id:"P8", name:"Neurazitelný: stav podpisu smlouvy + náklady Káťa Gaillard", proj:"firemni-procesy", dl:null,
+  {p:"ASAP", id:"P8", name:"Neurazitelný: stav podpisu smlouvy + náklady Káťa Gaillard", proj:"firemni-procesy",
    ice:{i:6,c:8,e:8}, ch:[
      {t:"Zjistit aktuální stav podpisu smlouvy",d:false},
      {t:"Ověřit: jsou náklady na Káťu Gaillard součástí 8% režie, nebo nad rámec?",d:false},
      {t:"Výsledek zapsat zpět do projektu",d:false}]},
-  {p:"ASAP", id:"S1", name:"Konference 2026: rozhodnutí event vs. konference", proj:"strategy", dl:"2026-05-15",
+  {p:"ASAP", id:"S1", name:"Konference 2026: rozhodnutí event vs. konference", proj:"strategy",
    ice:{i:8,c:7,e:6}, ch:[
      {t:"Rozhodnutí na Strategy týmu (začátek května)",d:false},
      {t:"Příprava komunikačního plánu",d:false}]},
-  {p:"ASAP", id:"P2", name:"Sales/Delivery handover zakotven a spuštěn", proj:"firemni-procesy", dl:null,
+  {p:"ASAP", id:"P2", name:"Sales/Delivery handover zakotven a spuštěn", proj:"firemni-procesy",
    ice:{i:8,c:7,e:6}, ch:[
      {t:"Ověřit výstupy ze středečního meetingu (Martin R.)",d:false},
      {t:"Rozeslat mapu procesu do týmu",d:false},
      {t:"Domluvit kde mapa bydlí",d:false}]},
-  {p:"ASAP", id:"F3", name:"Šuplíčky: zálohy pro kontraktory", proj:"firemni-procesy", dl:null,
+  {p:"ASAP", id:"F3", name:"Šuplíčky: zálohy pro kontraktory", proj:"firemni-procesy",
    ice:{i:5,c:7,e:7}, ch:[
      {t:"Nastavit šuplíčky pro relevantní kontraktory",d:false},
      {t:"Sepsat pravidla",d:false}]},
-  {p:"ASAP", id:"S2", name:"Hierarchie cílů: obrat vs. ziskovost vs. dopad", proj:"strategy", dl:"2026-05-31",
+  {p:"ASAP", id:"S2", name:"Hierarchie cílů: obrat vs. ziskovost vs. dopad", proj:"strategy",
    ice:{i:9,c:6,e:4}, ch:[
      {t:"Zařadit na management schůzku (do konce května)",d:false},
      {t:"Připravit vstup: kde jsme na každém ze tří cílů",d:false}]},
-  {p:"ASAP", id:"T4", name:"Dovolené/volno tracking v Univerzu", proj:"rb-universe-development", dl:null,
+  {p:"ASAP", id:"T4", name:"Dovolené/volno tracking v Univerzu", proj:"rb-universe-development",
    ice:{i:6,c:7,e:5}, ch:[
      {t:"Navrhnout datový model",d:false},
      {t:"Propojení Univerz → infokalendář",d:false},
      {t:"Zpětný import od 1.1.2026",d:false},
      {t:"Domluvit pravidla s Káťou",d:false}]},
-  {p:"ASAP", id:"O1", name:"Smluvní rámec akvizice (Lokajíček)", proj:"ma-odyssey", dl:null,
+  {p:"ASAP", id:"O1", name:"Smluvní rámec akvizice (Lokajíček)", proj:"ma-odyssey",
    ice:{i:10,c:5,e:3}, ch:[
      {t:"Sledovat přípravu podkladů ze strany Odyssey",d:false},
      {t:"Promyslet cash mechanismus pro platbu Martinovi",d:false},
      {t:"Připravit smlouvy owners RB Associates s.r.o.",d:false}]},
 
   // ── NEXT ──────────────────────────────────────────────
-  {p:"Next", id:"T8", name:"Bug: uživatel nevidí historii plateb", proj:"rb-universe-development", dl:null,
+  {p:"Next", id:"T8", name:"Bug: uživatel nevidí historii plateb", proj:"rb-universe-development",
    ice:{i:6,c:9,e:7}, ch:[
      {t:"Reprodukovat bug (screenshot od Káti)",d:false},
      {t:"Dohledat kde se history plateb fetchuje z Alfrédu",d:false},
      {t:"Opravit + otestovat",d:false}]},
-  {p:"Next", id:"K1", name:"Nastavit Google Cloud a platební kartu", proj:"kratky-potlesk", dl:null,
+  {p:"Next", id:"K1", name:"Nastavit Google Cloud a platební kartu", proj:"kratky-potlesk",
    ice:{i:5,c:9,e:8}, ch:[
      {t:"Vytvořit Google Cloud projekt",d:false},
      {t:"Přidat platební kartu / billing účet",d:false},
      {t:"Ověřit, že billing funguje",d:false}]},
-  {p:"Next", id:"O2", name:"Vyhodnotit nabídku půjčky od Romana (PeStratEx)", proj:"ma-odyssey", dl:null,
+  {p:"Next", id:"O2", name:"Vyhodnotit nabídku půjčky od Romana (PeStratEx)", proj:"ma-odyssey",
    ice:{i:7,c:7,e:7}, ch:[
      {t:"Zjistit podmínky — úrok, splatnost, forma",d:false},
      {t:"Rozhodnout, zda zapojit do cash mechanismu O1 bod 2",d:false}]},
-  {p:"Next", id:"F9", name:"Procesní mapa a mapa zodpovědností finančního týmu", proj:"financni-tym", dl:null,
+  {p:"Next", id:"F9", name:"Procesní mapa a mapa zodpovědností finančního týmu", proj:"financni-tym",
    ice:{i:7,c:8,e:6}, ch:[
      {t:"Získat pracovní náplň od účetní",d:true},
      {t:"Získat pracovní náplň od Dominika",d:true},
      {t:"Zodpovědnosti Lukáše doplněny",d:true},
      {t:"Zpracovat náplně + role → procesní mapa",d:false},
      {t:"Sestavit mapu zodpovědností (RACI)",d:false}]},
-  {p:"Next", id:"S5", name:"Exponential Summit: aktualizovat plán (posun → únor 2027)", proj:"strategy", dl:null,
+  {p:"Next", id:"S5", name:"Exponential Summit: aktualizovat plán (posun → únor 2027)", proj:"strategy",
    ice:{i:6,c:8,e:7}, ch:[]},
-  {p:"Next", id:"F2", name:"Analýza uzavřených zakázek Q1 2026", proj:"financni-tym", dl:"2026-05-31",
+  {p:"Next", id:"F2", name:"Analýza uzavřených zakázek Q1 2026", proj:"financni-tym",
    ice:{i:6,c:8,e:7}, ch:[]},
-  {p:"Next", id:"F6", name:"Firemní karty: pravidla", proj:"firemni-procesy", dl:null,
+  {p:"Next", id:"F6", name:"Firemní karty: pravidla", proj:"firemni-procesy",
    ice:{i:4,c:8,e:8}, ch:[]},
-  {p:"Next", id:"F12", name:"Wise.com: založit a aktivovat účet pro RB EDU", proj:"financni-tym", dl:null,
+  {p:"Next", id:"F12", name:"Wise.com: založit a aktivovat účet pro RB EDU", proj:"financni-tym",
    ice:{i:5,c:8,e:7}, ch:[
      {t:"Zahájit registraci firemního účtu",d:false},
      {t:"Připravit potřebné dokumenty (IČO, výpis z OR)",d:false},
      {t:"Dokončit verifikaci a aktivovat účet",d:false},
      {t:"Napojit na platební procesy (faktury v EUR)",d:false}]},
-  {p:"Next", id:"K2", name:"Spojit se s Radkem a vyřešit směrování domény", proj:"kratky-potlesk", dl:null,
+  {p:"Next", id:"K2", name:"Spojit se s Radkem a vyřešit směrování domény", proj:"kratky-potlesk",
    ice:{i:5,c:8,e:7}, ch:[
      {t:"Kontaktovat Radka a domluvit schůzku / call",d:false},
      {t:"Upřesnit co přesně se mění (DNS záznamy)",d:false},
      {t:"Provést změnu + ověřit že doména funguje",d:false}]},
-  {p:"Next", id:"P1", name:"Project closing process v Alfrédu", proj:"firemni-procesy", dl:null,
+  {p:"Next", id:"P1", name:"Project closing process v Alfrédu", proj:"firemni-procesy",
    ice:{i:6,c:7,e:6}, ch:[]},
-  {p:"Next", id:"P5", name:"Pravidla evidence dovolené a volna", proj:"firemni-procesy", dl:null,
+  {p:"Next", id:"P5", name:"Pravidla evidence dovolené a volna", proj:"firemni-procesy",
    ice:{i:5,c:7,e:7}, ch:[]},
-  {p:"Next", id:"P7", name:"Napsat aktualizovaný medailonek pro web", proj:"firemni-procesy", dl:null,
+  {p:"Next", id:"P7", name:"Napsat aktualizovaný medailonek pro web", proj:"firemni-procesy",
    ice:{i:3,c:9,e:8}, ch:[]},
-  {p:"Next", id:"F8", name:"Pravidla pro náhrady za cestovné (use-case list)", proj:"firemni-procesy", dl:null,
+  {p:"Next", id:"F8", name:"Pravidla pro náhrady za cestovné (use-case list)", proj:"firemni-procesy",
    ice:{i:4,c:8,e:7}, ch:[
      {t:"Definovat use-cases, na které se 7 CZK/km vztahuje",d:false},
      {t:"Definovat výjimky — co náhradu nezakládá",d:false},
      {t:"Ověřit kdo pravidla schválí",d:false},
      {t:"Uložit na kanonické místo",d:false}]},
-  {p:"Next", id:"T1", name:"MCP: data integrity & rozšíření", proj:"rb-universe-development", dl:null,
+  {p:"Next", id:"T1", name:"MCP: data integrity & rozšíření", proj:"rb-universe-development",
    ice:{i:7,c:6,e:5}, ch:[
      {t:"Sledovat opravy Alfréd API",d:false},
      {t:"Po opravě ověřit kvalitu dat",d:false},
      {t:"Řešit přístupová práva ChatGPT",d:false}]},
-  {p:"Next", id:"S4", name:"Cenová strategie akademií", proj:"strategy", dl:null,
+  {p:"Next", id:"S4", name:"Cenová strategie akademií", proj:"strategy",
    ice:{i:8,c:6,e:4}, ch:[]},
-  {p:"Next", id:"T10", name:"Cashflow dashboard pro produkty", proj:"rb-universe-development", dl:null,
+  {p:"Next", id:"T10", name:"Cashflow dashboard pro produkty", proj:"rb-universe-development",
    ice:{i:8,c:6,e:4}, ch:[
      {t:"Upřesnit scope: které produkty, jaká granularita",d:false},
      {t:"Navrhnout datový model",d:false},
      {t:"Napojit na finanční data",d:false},
      {t:"Připravit wireframe / mockup",d:false}]},
-  {p:"Next", id:"F4", name:"Cashflow forecast v Alfrédu", proj:"financni-tym", dl:null,
+  {p:"Next", id:"F4", name:"Cashflow forecast v Alfrédu", proj:"financni-tym",
    ice:{i:7,c:6,e:4}, ch:[]},
-  {p:"Next", id:"P4", name:"Reporting PM aktivit (time tracking)", proj:"firemni-procesy", dl:null,
+  {p:"Next", id:"P4", name:"Reporting PM aktivit (time tracking)", proj:"firemni-procesy",
    ice:{i:5,c:6,e:5}, ch:[]},
-  {p:"Next", id:"T6", name:"Signi integrace", proj:"rb-universe-development", dl:null,
+  {p:"Next", id:"T6", name:"Signi integrace", proj:"rb-universe-development",
    ice:{i:5,c:6,e:5}, ch:[]},
-  {p:"Next", id:"H3", name:"OB pro akademie + Edu revize", proj:"obchodni-podminky-rb-edu", dl:null,
+  {p:"Next", id:"H3", name:"OB pro akademie + Edu revize", proj:"obchodni-podminky-rb-edu",
    ice:{i:6,c:5,e:4}, ch:[
      {t:"Zjistit u Lukáše D. aktuální stav a co potřebuje",d:false}]},
-  {p:"Next", id:"N1", name:"Katalog RB Network: první podoba", proj:"rb-network", dl:null,
+  {p:"Next", id:"N1", name:"Katalog RB Network: první podoba", proj:"rb-network",
    ice:{i:4,c:6,e:5}, ch:[]},
-  {p:"Next", id:"T9", name:"Projekt architekt: najít první testovací proces", proj:"rb-universe-development", dl:null,
+  {p:"Next", id:"T9", name:"Projekt architekt: najít první testovací proces", proj:"rb-universe-development",
    ice:{i:4,c:5,e:6}, ch:[]},
-  {p:"Next", id:"P3", name:"Smlouvy s kontraktory / švarc", proj:"firemni-procesy", dl:null,
+  {p:"Next", id:"P3", name:"Smlouvy s kontraktory / švarc", proj:"firemni-procesy",
    ice:{i:7,c:5,e:3}, ch:[]},
-  {p:"Next", id:"T7", name:"Projektové řízení — zahrnout do Universe? (MVP)", proj:"rb-universe-development", dl:null,
+  {p:"Next", id:"T7", name:"Projektové řízení — zahrnout do Universe? (MVP)", proj:"rb-universe-development",
    ice:{i:5,c:4,e:4}, ch:[]},
 
   // ── BACKLOG ────────────────────────────────────────────
-  {p:"Backlog", id:"V2", name:"Fix n8n: extrakce obsahu Google Doc z emailu", proj:"vibe-coding", dl:null,
+  {p:"Backlog", id:"V2", name:"Fix n8n: extrakce obsahu Google Doc z emailu", proj:"vibe-coding",
    ice:{i:4,c:8,e:7}, ch:[
      {t:"Zkontrolovat OAuth scope Google Drive credential v n8n",d:false},
      {t:"Ověřit nasdílení dokumentu se správným Google účtem",d:false},
      {t:"Nahradit Code Node za nativní n8n Google Drive / HTTP Request node",d:false}]},
-  {p:"Backlog", id:"S3", name:"Growth partnerships: quarterly update", proj:"strategy", dl:null,
+  {p:"Backlog", id:"S3", name:"Growth partnerships: quarterly update", proj:"strategy",
    ice:{i:5,c:6,e:7}, ch:[]},
-  {p:"Backlog", id:"T3", name:"Sales summary e-mail přes husku", proj:"rb-universe-development", dl:null,
+  {p:"Backlog", id:"T3", name:"Sales summary e-mail přes husku", proj:"rb-universe-development",
    ice:{i:4,c:5,e:6}, ch:[]},
-  {p:"Backlog", id:"F7", name:"Nákladová struktura dashboard", proj:"financni-tym", dl:null,
+  {p:"Backlog", id:"F7", name:"Nákladová struktura dashboard", proj:"financni-tym",
    ice:{i:6,c:5,e:4}, ch:[]},
-  {p:"Backlog", id:"P6", name:"AI-based procesní řízení: inspirace", proj:"firemni-procesy", dl:null,
+  {p:"Backlog", id:"P6", name:"AI-based procesní řízení: inspirace", proj:"firemni-procesy",
    ice:{i:4,c:4,e:3}, ch:[]}
 ];
 
 const PROJ = {
-  "strategy":                {label:"Strategy",        acc:"acc-r"},
-  "firemni-procesy":         {label:"Firemní procesy", acc:"acc-r"},
-  "rb-universe-development": {label:"RB Universe",     acc:"acc-r"},
-  "financni-tym":            {label:"Finanční tým",    acc:"acc-r"},
-  "ma-odyssey":              {label:"M&A Odyssey",     acc:"acc-r"},
-  "obchodni-podminky-rb-edu":{label:"Obch. podmínky",  acc:"acc-am"},
-  "kratky-potlesk":          {label:"Krátký potlesk",  acc:"acc-te"},
-  "vibe-coding":             {label:"Vibe coding",     acc:"acc-te"},
-  "rb-network":              {label:"RB Network",      acc:"acc-gr"}
+  "strategy":                {label:"Strategy",       acc:"acc-r"},
+  "firemni-procesy":         {label:"Firemní procesy",acc:"acc-r"},
+  "rb-universe-development": {label:"RB Universe",    acc:"acc-r"},
+  "financni-tym":            {label:"Finanční tým",   acc:"acc-r"},
+  "ma-odyssey":              {label:"M&A Odyssey",    acc:"acc-r"},
+  "obchodni-podminky-rb-edu":{label:"Obch. podmínky", acc:"acc-am"},
+  "kratky-potlesk":          {label:"Krátký potlesk", acc:"acc-te"},
+  "vibe-coding":             {label:"Vibe coding",    acc:"acc-te"},
+  "rb-network":              {label:"RB Network",     acc:"acc-gr"}
 };
 
 const PRIOS = ["ASAP","Next","Backlog"];
 const PILL_CLASS = {ASAP:"asap-pill", Next:"next-pill", Backlog:"backlog-pill"};
 const TAB_ACTIVE = {all:"active-all", ASAP:"active-asap", Next:"active-next", Backlog:"active-backlog"};
-const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 
 function ice(t){ return t.ice.i * t.ice.c * t.ice.e; }
 
-function fmtDl(dl) {
-  if (!dl) return '';
-  const d = new Date(dl); d.setHours(0,0,0,0);
-  const day = d.getDate(), mon = d.toLocaleString('cs',{month:'short'});
-  const str = day + '. ' + mon + '.';
-  const past = d < TODAY;
-  return `<span class="${past?'dl-past':'dl-future'}">${past?'⚠ ':''}${str}</span>`;
-}
-
 let expanded = {};
+let currentFilter = "all";
 
 function setFilter(f, btn) {
+  currentFilter = f;
   document.querySelectorAll('.ftab').forEach(b => b.className = 'ftab');
   btn.className = 'ftab ' + TAB_ACTIVE[f];
-  render(f);
+  render();
 }
 
 function toggleTask(id) {
   expanded[id] = !expanded[id];
   const cl = document.getElementById('cl-' + id);
-  const ti = document.getElementById('ti-' + id);
+  const ic = document.getElementById('ti-' + id);
   if (cl) cl.className = 'checklist' + (expanded[id] ? ' open' : '');
-  if (ti) ti.className = 'toggle-icon' + (expanded[id] ? ' open' : '');
+  if (ic) ic.className = 'toggle-icon' + (expanded[id] ? ' open' : '');
 }
 
-function render(filter) {
-  filter = filter || 'all';
+function render() {
   const board = document.getElementById('board');
   board.innerHTML = '';
 
@@ -321,7 +306,7 @@ function render(filter) {
   document.getElementById('cnt-next').textContent = totals.Next;
   document.getElementById('cnt-bl').textContent = totals.Backlog;
 
-  const showPrios = filter === 'all' ? PRIOS : [filter];
+  const showPrios = currentFilter === 'all' ? PRIOS : [currentFilter];
 
   showPrios.forEach(prio => {
     const tasks = TASKS.filter(t => t.p === prio).sort((a,b) => ice(b) - ice(a));
@@ -329,54 +314,55 @@ function render(filter) {
 
     const sec = document.createElement('div');
     sec.className = 'section';
-    sec.innerHTML = `<div class="sec-header">
-      <span class="sec-pill ${PILL_CLASS[prio]}">${prio}</span>
-      <span class="sec-count">${tasks.length} úkolů</span>
-      <div class="sec-line"></div>
-    </div>`;
+
+    sec.innerHTML = `
+      <div class="sec-header">
+        <span class="sec-pill ${PILL_CLASS[prio]}">${prio}</span>
+        <span class="sec-count">${tasks.length} úkolů</span>
+        <div class="sec-line"></div>
+      </div>
+    `;
 
     tasks.forEach(t => {
+      const pr = PROJ[t.p_proj || t.proj] || {label: t.proj, acc:"acc-gr"};
       const proj = PROJ[t.proj] || {label: t.proj, acc:"acc-gr"};
       const score = ice(t);
       const hasCh = t.ch && t.ch.length > 0;
-      const dlHtml = fmtDl(t.dl);
 
       const card = document.createElement('div');
       card.className = 'task';
 
-      let chHtml = `<div class="checklist${expanded[t.id]?' open':''}" id="cl-${t.id}">`;
+      let chHtml = '';
       if (hasCh) {
+        chHtml = `<div class="checklist${expanded[t.id]?' open':''}" id="cl-${t.id}">`;
         t.ch.forEach(c => {
           chHtml += `<div class="ch-item">
             <div class="ch-box${c.d?' done':''}">${c.d?'✓':''}</div>
             <span class="${c.d?'ch-done':''}">${c.t}</span>
           </div>`;
         });
+        chHtml += '</div>';
       } else {
-        chHtml += `<div class="no-ch">Bez checklistu</div>`;
+        chHtml = `<div class="checklist${expanded[t.id]?' open':''}" id="cl-${t.id}">
+          <div class="no-ch">Bez checklistu</div>
+        </div>`;
       }
-      chHtml += '</div>';
 
       card.innerHTML = `
         <div class="task-main" onclick="toggleTask('${t.id}')">
           <div class="task-body">
-            <div class="task-name-row">
-              <span class="task-name">${t.name}</span>
-              ${dlHtml}
-            </div>
-            <div class="task-meta-row">
-              <span class="task-id">${t.id}</span>
-              <span class="meta-sep">·</span>
-              <div class="ice-subtle">
-                <span class="ice-subtle-score">ICE ${score}</span>
-                <div class="ice-subtle-parts">
-                  <div class="ice-p"><span>I</span><span>${t.ice.i}</span></div>
-                  <div class="ice-p"><span>C</span><span>${t.ice.c}</span></div>
-                  <div class="ice-p"><span>E</span><span>${t.ice.e}</span></div>
-                </div>
-              </div>
-              <span class="meta-sep">·</span>
+            <div class="task-top">
+              <span class="task-name"><span class="tid">${t.id}</span>${t.name}</span>
               <span class="proj-badge ${proj.acc}">${proj.label}</span>
+            </div>
+            <div class="ice-row">
+              <span class="ice-score">ICE ${score}</span>
+              <span class="ice-sep">·</span>
+              <div class="ice-parts">
+                <div class="ice-part"><span>I</span><span>${t.ice.i}</span></div>
+                <div class="ice-part"><span>C</span><span>${t.ice.c}</span></div>
+                <div class="ice-part"><span>E</span><span>${t.ice.e}</span></div>
+              </div>
             </div>
           </div>
           <div class="toggle-icon${expanded[t.id]?' open':''}" id="ti-${t.id}">▾</div>
@@ -391,7 +377,7 @@ function render(filter) {
   });
 }
 
-render('all');
+render();
 </script>
 </body>
 </html>
