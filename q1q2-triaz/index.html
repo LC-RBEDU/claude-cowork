@@ -1,0 +1,316 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Q1q2 Triaz",
+  "schemaVersion": 1,
+  "description": "Všechny úkoly s termínem Q1 nebo Q2, rozdělené podle projektů. Statická data ze stavu triáže 6. 5. 2026, aktualizuje se manuálně po každé triáži."
+}
+</script>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Q1/Q2 Triáž</title>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f6f3;color:#1a1a18;font-size:14px;padding:18px 20px 40px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px}
+.tit{font-size:12px;font-weight:500;color:#999;letter-spacing:.06em;text-transform:uppercase}
+.stats{display:flex;gap:16px}
+.sn{font-size:20px;font-weight:500;line-height:1;text-align:center}
+.sl{font-size:10px;color:#bbb;margin-top:2px;text-align:center}
+.filters{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.ftab{font-size:12px;font-weight:500;padding:5px 12px;border-radius:99px;border:1.5px solid transparent;cursor:pointer;transition:all .12s}
+.ftab.all{border-color:#c8c4bc;color:#666;background:#fff}
+.ftab.all.active{background:#1a1a18;color:#fff;border-color:#1a1a18}
+.ftab.q1{border-color:#E24B4A;color:#A32D2D;background:#FCEBEB}
+.ftab.q1.active{background:#E24B4A;color:#fff;border-color:#E24B4A}
+.ftab.q2{border-color:#BA7517;color:#854F0B;background:#FAEEDA}
+.ftab.q2.active{background:#BA7517;color:#fff;border-color:#BA7517}
+.project-block{background:#fff;border-radius:12px;border:.5px solid #e0ddd5;margin-bottom:10px;overflow:hidden}
+.project-block.hidden{display:none}
+.proj-header{display:flex;align-items:center;gap:10px;padding:11px 15px;cursor:pointer;border-bottom:.5px solid #f0ede6;user-select:none}
+.proj-header:hover{background:#faf9f6}
+.acc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.r{background:#E24B4A}.am{background:#BA7517}.te{background:#1D9E75}.gr{background:#b4b2a9}
+.proj-name{font-size:13px;font-weight:600;flex:1}
+.proj-counts{display:flex;gap:6px}
+.qbadge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px}
+.q1b{background:#FCEBEB;color:#A32D2D}
+.q2b{background:#FAEEDA;color:#854F0B}
+.toggle{font-size:11px;color:#bbb;transition:transform .15s}
+.toggle.open{transform:rotate(180deg)}
+.tasks-wrap{padding:0 15px}
+.tasks-wrap.collapsed{display:none}
+.task-row{padding:9px 0;border-bottom:.5px solid #f0ede6;display:flex;gap:10px;align-items:flex-start}
+.task-row:last-child{border-bottom:none}
+.task-meta{flex:1;min-width:0}
+.task-id{font-size:10px;color:#bbb;font-family:"SF Mono",monospace;margin-bottom:1px}
+.task-name{font-size:13px;font-weight:500;line-height:1.35;margin-bottom:5px}
+.task-checklist{display:flex;flex-direction:column;gap:3px}
+.ch-item{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:#666;line-height:1.4}
+.ch-box{width:12px;height:12px;border:.5px solid #c8c4bc;border-radius:3px;flex-shrink:0;margin-top:1px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:8px}
+.ch-box.done{background:#1D9E75;border-color:#1D9E75;color:#fff}
+.ch-done{color:#bbb;text-decoration:line-through}
+.qpill{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;white-space:nowrap;align-self:flex-start;margin-top:1px}
+.q1p{background:#FCEBEB;color:#A32D2D}
+.q2p{background:#FAEEDA;color:#854F0B}
+.type-label{font-size:9px;font-weight:500;color:#bbb;letter-spacing:.06em;text-transform:uppercase;padding:7px 0 4px;margin-top:3px}
+.type-label:first-child{padding-top:10px}
+.empty{font-size:12px;color:#bbb;text-align:center;padding:24px 0}
+.updated{font-size:11px;color:#bbb;text-align:center;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="tit">Q1 / Q2 Triáž</span>
+  <div class="stats">
+    <div><div class="sn" id="cnt-q1">0</div><div class="sl">Q1 úkolů</div></div>
+    <div><div class="sn" id="cnt-q2">0</div><div class="sl">Q2 úkolů</div></div>
+    <div><div class="sn" id="cnt-proj">0</div><div class="sl">projektů</div></div>
+  </div>
+</div>
+
+<div class="filters">
+  <button class="ftab all active" onclick="setFilter('all',this)">Vše</button>
+  <button class="ftab q1" onclick="setFilter('Q1',this)">Jen Q1</button>
+  <button class="ftab q2" onclick="setFilter('Q2',this)">Jen Q2</button>
+</div>
+
+<div id="board"></div>
+<div class="updated">Triáž: 6. 5. 2026</div>
+
+<script>
+const D = {
+  strategy: {
+    name: "Strategy", acc: "r",
+    active: [
+      {id:"S1",q:"Q1",name:"Konference 2026: rozhodnutí event vs. konference",
+       ch:[{t:"Rozhodnutí na Strategy týmu (začátek května)",d:false},{t:"Příprava komunikačního plánu",d:false}]},
+      {id:"S2",q:"Q1",name:"Hierarchie cílů: obrat vs. ziskovost vs. dopad",
+       ch:[{t:"Zařadit na management schůzku (do konce května)",d:false},{t:"Připravit vstup: kde jsme na každém ze tří cílů",d:false}]}
+    ],
+    bl: [
+      {id:"S4",q:"Q2",name:"Cenová strategie akademií"},
+      {id:"S5",q:"Q2",name:"Exponential Summit: aktualizovat plán (posun → únor 2027)"}
+    ]
+  },
+  "firemni-procesy": {
+    name: "Firemní procesy", acc: "r",
+    active: [
+      {id:"P2",q:"Q1",name:"Sales/Delivery handover zakotven a spuštěn",
+       ch:[{t:"Ověřit výstupy ze středečního meetingu (Martin R.)",d:false},{t:"Rozeslat mapu procesu do týmu",d:false},{t:"Domluvit kde mapa bydlí",d:false}]},
+      {id:"F1",q:"Q1",name:"Alokace nákladů na projekty (utilizace)",
+       ch:[{t:"Rozeslat pokyn k utilizaci — vykazovat na projekty (3. 5.)",d:true},{t:"Ověřit, že Dominik nastaví technicky v Alfrédu",d:false}]},
+      {id:"F3",q:"Q1",name:"Šuplíčky: zálohy pro kontraktory",
+       ch:[{t:"Nastavit šuplíčky pro relevantní kontraktory",d:false},{t:"Sepsat pravidla",d:false}]},
+      {id:"P8",q:"Q1",name:"Neurazitelný: stav podpisu smlouvy + náklady Káťa Gaillard",
+       ch:[{t:"Zjistit aktuální stav podpisu smlouvy",d:false},{t:"Ověřit: jsou náklady na Káťu Gaillard součástí 8% režie, nebo nad rámec?",d:false},{t:"Výsledek zapsat zpět do projektu",d:false}]},
+      {id:"F8",q:"Q2",name:"Pravidla pro náhrady za cestovné (use-case list)",
+       ch:[{t:"Definovat use-cases, na které se 7 CZK/km vztahuje",d:false},{t:"Definovat výjimky — co náhradu nezakládá",d:false},{t:"Ověřit kdo pravidla schválí",d:false},{t:"Uložit na kanonické místo",d:false}]}
+    ],
+    bl: [
+      {id:"P7",q:"Q2",name:"Napsat aktualizovaný medailonek pro web"},
+      {id:"P1",q:"Q2",name:"Project closing process v Alfrédu"},
+      {id:"P4",q:"Q2",name:"Reporting PM aktivit (time tracking)"},
+      {id:"F6",q:"Q2",name:"Firemní karty: pravidla"},
+      {id:"P5",q:"Q2",name:"Pravidla evidence dovolené a volna"},
+      {id:"P3",q:"Q2",name:"Smlouvy s kontraktory / švarc"}
+    ]
+  },
+  "rb-universe-development": {
+    name: "RB Universe dev", acc: "r",
+    active: [
+      {id:"T4",q:"Q1",name:"Dovolené/volno tracking v Univerzu",
+       ch:[{t:"Navrhnout datový model",d:false},{t:"Propojení Univerz → infokalendář",d:false},{t:"Zpětný import od 1.1.2026",d:false},{t:"Domluvit pravidla s Káťou",d:false}]},
+      {id:"T1",q:"Q2",name:"MCP: data integrity & rozšíření",
+       ch:[{t:"Sledovat opravy Alfréd API",d:false},{t:"Po opravě ověřit kvalitu dat",d:false},{t:"Řešit přístupová práva ChatGPT",d:false}]},
+      {id:"T6",q:"Q2",name:"Signi integrace",ch:[]},
+      {id:"T8",q:"Q2",name:"Bug: uživatel nevidí historii plateb",
+       ch:[{t:"Reprodukovat bug (screenshot od Káti)",d:false},{t:"Dohledat kde se history plateb fetchuje z Alfrédu",d:false},{t:"Opravit + otestovat",d:false}]},
+      {id:"T10",q:"Q2",name:"Cashflow dashboard pro produkty",
+       ch:[{t:"Upřesnit scope: které produkty, jaká granularita",d:false},{t:"Navrhnout datový model",d:false},{t:"Napojit na finanční data",d:false},{t:"Připravit wireframe / mockup",d:false}]}
+    ],
+    bl: [
+      {id:"T9",q:"Q2",name:"Projekt architekt: najít první testovací proces"},
+      {id:"T7",q:"Q2",name:"Projektové řízení — zahrnout do Universe? (MVP by Pavel Kroupa)"}
+    ]
+  },
+  "financni-tym": {
+    name: "Finanční tým", acc: "r",
+    active: [
+      {id:"F9",q:"Q2",name:"Procesní mapa a mapa zodpovědností finančního týmu",
+       ch:[{t:"Získat pracovní náplň od účetní",d:true},{t:"Získat pracovní náplň od Dominika",d:true},{t:"Zodpovědnosti Lukáše doplněny",d:true},{t:"Zpracovat náplně + role → procesní mapa",d:false},{t:"Sestavit mapu zodpovědností (RACI)",d:false}]},
+      {id:"F12",q:"Q2",name:"Wise.com: založit a aktivovat účet pro RB EDU",
+       ch:[{t:"Zahájit registraci firemního účtu",d:false},{t:"Připravit potřebné dokumenty (IČO, výpis z OR)",d:false},{t:"Dokončit verifikaci a aktivovat účet",d:false},{t:"Napojit na platební procesy (faktury v EUR)",d:false}]}
+    ],
+    bl: [
+      {id:"F2",q:"Q2",name:"Analýza uzavřených zakázek Q1 2026"},
+      {id:"F4",q:"Q2",name:"Cashflow forecast v Alfrédu"}
+    ]
+  },
+  "ma-odyssey": {
+    name: "M&A Odyssey", acc: "r",
+    active: [
+      {id:"O1",q:"Q1",name:"Smluvní rámec akvizice (Lokajíček)",
+       ch:[{t:"Sledovat přípravu podkladů ze strany Odyssey",d:false},{t:"Promyslet cash mechanismus pro platbu Martinovi",d:false},{t:"Připravit smlouvy owners RB Associates s.r.o.",d:false}]},
+      {id:"O3",q:"Q1",name:"Projít Plaud transcript + ověřit follow-up od Honzy",
+       ch:[{t:"Přečíst Plaud přepis z jednání s Lokajíčkem",d:false},{t:"Porovnat s O1 — doplnit nové detaily",d:false},{t:"Ověřit, zda Honza odeslal follow-up",d:false}]},
+      {id:"O2",q:"Q2",name:"Vyhodnotit nabídku půjčky od Romana (PeStratEx)",
+       ch:[{t:"Zjistit podmínky — úrok, splatnost, forma",d:false},{t:"Rozhodnout, zda zapojit do cash mechanismu O1 bod 2",d:false}]}
+    ],
+    bl: []
+  },
+  "obchodni-podminky-rb-edu": {
+    name: "Obchodní podmínky", acc: "am",
+    active: [
+      {id:"H3",q:"Q2",name:"OB pro akademie + Edu revize",
+       ch:[{t:"Zjistit u Lukáše D. aktuální stav a co potřebuje",d:false}]}
+    ],
+    bl: []
+  },
+  "kratky-potlesk": {
+    name: "Krátký potlesk", acc: "te",
+    active: [
+      {id:"K1",q:"Q2",name:"Nastavit Google Cloud a platební kartu",
+       ch:[{t:"Vytvořit Google Cloud projekt",d:false},{t:"Přidat platební kartu / billing účet",d:false},{t:"Ověřit, že billing funguje",d:false}]},
+      {id:"K2",q:"Q2",name:"Spojit se s Radkem a vyřešit směrování domény",
+       ch:[{t:"Kontaktovat Radka a domluvit schůzku / call",d:false},{t:"Upřesnit co přesně se mění (DNS záznamy)",d:false},{t:"Provést změnu + ověřit že doména funguje",d:false}]}
+    ],
+    bl: []
+  },
+  "rb-network": {
+    name: "Red Button Network", acc: "gr",
+    active: [],
+    bl: [{id:"N1",q:"Q2",name:"Katalog RB Network: první podoba"}]
+  }
+};
+
+const ORDER = ["strategy","firemni-procesy","rb-universe-development","financni-tym","ma-odyssey","obchodni-podminky-rb-edu","kratky-potlesk","rb-network"];
+
+let currentFilter = 'all';
+
+function tasksForProject(key, filter) {
+  const p = D[key];
+  const f = q => filter === 'all' ? (q === 'Q1' || q === 'Q2') : q === filter;
+  return {
+    active: (p.active || []).filter(t => f(t.q)),
+    bl: (p.bl || []).filter(t => f(t.q))
+  };
+}
+
+function render(filter) {
+  currentFilter = filter;
+  let totalQ1 = 0, totalQ2 = 0, projCount = 0;
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  ORDER.forEach(key => {
+    const p = D[key];
+    const {active, bl} = tasksForProject(key, filter);
+    const all = [...active, ...bl];
+    if (all.length === 0) return;
+
+    projCount++;
+    const q1c = all.filter(t => t.q === 'Q1').length;
+    const q2c = all.filter(t => t.q === 'Q2').length;
+    totalQ1 += q1c;
+    totalQ2 += q2c;
+
+    const blockId = 'block-' + key;
+    const wrapId = 'wrap-' + key;
+    const togId = 'tog-' + key;
+
+    const block = document.createElement('div');
+    block.className = 'project-block';
+    block.id = blockId;
+
+    let countHtml = '';
+    if (q1c) countHtml += `<span class="qbadge q1b">${q1c}× Q1</span>`;
+    if (q2c) countHtml += `<span class="qbadge q2b">${q2c}× Q2</span>`;
+
+    block.innerHTML = `
+      <div class="proj-header" onclick="toggleBlock('${wrapId}','${togId}')">
+        <div class="acc-dot ${p.acc}"></div>
+        <div class="proj-name">${p.name}</div>
+        <div class="proj-counts">${countHtml}</div>
+        <div class="toggle open" id="${togId}">▾</div>
+      </div>
+      <div class="tasks-wrap" id="${wrapId}">
+        ${renderTasks(active, bl)}
+      </div>
+    `;
+    board.appendChild(block);
+  });
+
+  document.getElementById('cnt-q1').textContent = totalQ1;
+  document.getElementById('cnt-q2').textContent = totalQ2;
+  document.getElementById('cnt-proj').textContent = projCount;
+
+  if (projCount === 0) {
+    board.innerHTML = '<div class="empty">Žádné úkoly pro zvolený filtr</div>';
+  }
+}
+
+function renderTasks(active, bl) {
+  let h = '';
+
+  if (active.length) {
+    h += '<div class="type-label">Aktivní</div>';
+    active.forEach(t => {
+      h += `<div class="task-row">
+        <div class="task-meta">
+          <div class="task-id">${t.id}</div>
+          <div class="task-name">${t.name}</div>`;
+      if (t.ch && t.ch.length) {
+        h += '<div class="task-checklist">';
+        t.ch.forEach(c => {
+          h += `<div class="ch-item">
+            <div class="ch-box${c.d?' done':''}">${c.d?'✓':''}</div>
+            <span class="${c.d?'ch-done':''}">${c.t}</span>
+          </div>`;
+        });
+        h += '</div>';
+      }
+      h += `</div><span class="qpill ${t.q==='Q1'?'q1p':'q2p'}">${t.q}</span></div>`;
+    });
+  }
+
+  if (bl.length) {
+    h += '<div class="type-label">Backlog</div>';
+    bl.forEach(t => {
+      h += `<div class="task-row">
+        <div class="task-meta">
+          <div class="task-id">${t.id}</div>
+          <div class="task-name">${t.name}</div>
+        </div>
+        <span class="qpill ${t.q==='Q1'?'q1p':'q2p'}">${t.q}</span>
+      </div>`;
+    });
+  }
+
+  return h;
+}
+
+function toggleBlock(wrapId, togId) {
+  const w = document.getElementById(wrapId);
+  const t = document.getElementById(togId);
+  if (w.classList.contains('collapsed')) {
+    w.classList.remove('collapsed');
+    t.classList.add('open');
+  } else {
+    w.classList.add('collapsed');
+    t.classList.remove('open');
+  }
+}
+
+function setFilter(f, btn) {
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render(f);
+}
+
+render('all');
+</script>
+</body>
+</html>
