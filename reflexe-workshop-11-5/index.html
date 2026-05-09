@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Reflexe Workshop 11 5",
+  "schemaVersion": 1,
+  "description": "Interaktivní přehled reflexe Lukáše k 10 otázkám pro Strategický workshop 11.5.2026 — procházení po otázkách s klíčovými body."
+}
+</script>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reflexe — Strategický workshop 11.5.</title>
+<style>
+  :root { color-scheme: light; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f9f9f8;
+    color: #1a1a1a;
+    padding: 24px 20px 48px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  header {
+    margin-bottom: 28px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 13px;
+    color: #888;
+  }
+
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+
+  .nav button {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #444;
+    transition: all 0.15s;
+  }
+
+  .nav button:hover, .nav button.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 14px;
+    display: none;
+  }
+
+  .card.visible {
+    display: block;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .q-badge {
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .card h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111;
+    line-height: 1.4;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #888;
+    margin: 14px 0 6px;
+  }
+
+  .section-label:first-of-type {
+    margin-top: 0;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  ul li {
+    padding: 5px 0 5px 16px;
+    position: relative;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+  }
+
+  ul li:last-child {
+    border-bottom: none;
+  }
+
+  ul li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: #bbb;
+    font-size: 12px;
+    top: 6px;
+  }
+
+  .highlight {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 6px 6px 0;
+    padding: 10px 14px;
+    margin-top: 12px;
+    font-size: 13.5px;
+    color: #444;
+  }
+
+  .highlight strong {
+    color: #111;
+  }
+
+  .person-tag {
+    display: inline-block;
+    background: #f0f0f0;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin-right: 2px;
+  }
+
+  .tag-stable { background: #dcfce7; color: #166534; }
+  .tag-risk { background: #fee2e2; color: #991b1b; }
+  .tag-mixed { background: #fef3c7; color: #92400e; }
+
+  .pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #eee;
+  }
+
+  .pagination button {
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .pagination button:disabled {
+    background: #ccc;
+    cursor: default;
+  }
+
+  .pagination .counter {
+    font-size: 13px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Reflexe — Strategický workshop 11.5.</h1>
+  <p>Lukáš · 10. 5. 2026 · 10 otázek</p>
+</header>
+
+<div class="nav" id="nav"></div>
+
+<div id="cards"></div>
+
+<div class="pagination">
+  <button id="prevBtn" onclick="navigate(-1)" disabled>← Předchozí</button>
+  <span class="counter" id="counter">1 / 10</span>
+  <button id="nextBtn" onclick="navigate(1)">Další →</button>
+</div>
+
+<script>
+const questions = [
+  {
+    q: "Q1",
+    title: "Co se podle mě dnes ve firmě opravdu děje?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Příliš mnoho operativních a provozních změn naráz — stará řešení přestávají fungovat, nová nejsou doimplementovaná",
+          "Chybí standardizované procesy, postupy a company-wide nástroje",
+          "Delivery: velká míra customizace pro zákazníky → zátěž na projekťáky a lektory",
+          "Tři business větve (Akademie/Čuček, Edutéka, Community/konference) fungují izolovaně — propojení se opakovaně nepodařilo",
+          "Finanční realita: jen Akademie/Čuček jsou prokazatelně ziskové; Edutéka a Community stojí na neprokázaném brand argumentu — neumíme ho změřit",
+          "Dva brandy (Red Button Edu + Red Button Network) → roztříštěný marketing → přetížení → odchod Evy",
+          "Project governance chaos: 4–5 nástrojů paralelně (Airtable, ClickUp, Trello, Google Sheets); Allfred vybrán, ale implementován jen částečně"
+        ]
+      }
+    ],
+    highlight: "Jádro: srdcovky se neřeší otevřeně, protože tam jsou silné osobní vazby zakladatelů + nedokážeme brand value změřit → status quo přetrvává navzdory opakovaným pokusům o změnu."
+  },
+  {
+    q: "Q2",
+    title: "Kde jako leadership tým fungujeme dobře? A kde ne?",
+    sections: [
+      {
+        label: "Kde fungujeme dobře",
+        items: [
+          "Komunikace do týmu — informujeme o tom, co se děje, kam směřujeme, co řešíme",
+          "Za rok existence jsme zrušili řadu aktivit a nastavili lepší timing souběžných věcí"
+        ]
+      },
+      {
+        label: "Kde nefungujeme",
+        items: [
+          "Strategy tým je rok starý — stále hledáme správný modus operandi",
+          "Na Strategy týmu řešíme operativu a taktiku místo strategie — každý člen je vytížen vlastní oblastí",
+          "Lukáš: malý přímý tým (~1,5 FTE), omezená přímá viditelnost do Delivery a Sales/Marketing → těžko hodnotit, co tam funguje"
+        ]
+      }
+    ]
+  },
+  {
+    q: "Q3",
+    title: "Co dnes nejvíc vytváří overload, frustraci nebo chaos?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Delivery: přetížení \"hvězd\" — vědomé rozhodnutí je nasazovat tam, kde to jde, ale dopady nebyly dohlédnuty v kontextu ambiciózních cílů a rostoucí komplexity",
+          "Marketing: příliš mnoho paralelních věcí — 3 větve, 2 brandy, jedna Eva",
+          "Ostatní: brutální overhead ze zavádění nových procesů, nástrojů a neustálé inovace — zkoušení nových věcí se stalo normou, nikoli výjimkou",
+          "Lukáš osobně: nedoimplementovaný Allfred — přetíženost PM brání zapojení, situace se sama nepohne"
+        ]
+      }
+    ]
+  },
+  {
+    q: "Q4",
+    title: "Jak k tomu osobně přispívám já?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Silná stránka: strategický nadhled + detailní znalost nástrojů a postupů",
+          "Slabina: chybí střední vrstva — konkrétní projektový plán s milníky, závislostmi, kapacitami, rizikovým řízením",
+          "Pattern: přeskakuji z helikoptéry (velký nadhled) do ponorky (detaily) bez mezipatra → vznikají mezery, které musí někdo doplnit",
+          "Kdo to odnáší: Dominik + projektoví manažeři, kteří nemají jasno jak sledovat finanční výsledek projektů",
+          "Osobně: tendence k perfekcionismu, který mě stojí enormní množství času"
+        ]
+      }
+    ],
+    highlight: "Přeskakuji z helikoptéry do ponorky bez mezipatra."
+  },
+  {
+    q: "Q5",
+    title: "Co jako vedení dlouhodobě neřešíme nebo přehlížíme?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Celý leadership tým jsou srdcaři bez hlídání vlastních hranic → pravidelně překračují kapacity",
+          "Ambice na strategické úrovni + perfekcionismus na realizační úrovni (\"11 z 10\") = strukturální přetěžování systému — ne náhoda, ale vzorec",
+          "Tento vzorec dosud nebyl pojmenován takhle nahlas na Strategy týmu",
+          "Přetížení individuálních lidí se pojmenovávalo, ale neodlehčovalo — řešení zůstávala ve strategické rovině bez konkrétního dopadu",
+          "Lukáš sám: přehlíží vlastní perfekcionismus, který ho stojí enormní množství času"
+        ]
+      }
+    ]
+  },
+  {
+    q: "Q6",
+    title: "Kde si vytváříme problém tím, že něco neříkáme nebo neřešíme?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Konflikty cílů (růst obratu + ziskovost + zachování srdcovek) se neřeší otevřeně",
+          "Přetížení individuálních lidí se pojmenovávalo, ale nepřekládalo do konkrétních kroků — strategická témata sloužila jako obal, ne řešení"
+        ]
+      }
+    ],
+    highlight: "Průlom: Lenka to otevřela důrazně po odchodu Evy + dalších signálech z týmu → dnešní workshop je přímý výsledek."
+  },
+  {
+    q: "Q7",
+    title: "Kde tolerujeme věci, které nechceme tolerovat?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Tolerujeme přetížení u lidí, které máme rádi a kteří dělají maximum — ale nemění se jim zadání na realistické",
+          "Příklad: marketing — rozstřel odpovědností → odchod Evy",
+          "~40 % režijních nákladů je dlouhodobě nadprůměrné a víme o tom — bez zásadního řešení; otázka, zda je i správně počítáme",
+          "Leadership tým to interně pojmenovává — problém není ve vědomí, ale v akci"
+        ]
+      }
+    ]
+  },
+  {
+    q: "Q8",
+    title: "Čeho se bojím, že se stane, pokud nic nezměníme?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Odejdou klíčoví lidé, na kterých závisí úspěch firmy",
+          "Strach je sdílený celým leadership týmem — jeden z hlavních důvodů tohoto workshopu"
+        ]
+      }
+    ],
+    highlight: "Toto není abstraktní riziko — signály jsou konkrétní a viditelné."
+  },
+  {
+    q: "Q9",
+    title: "Které vzorce historicky pomohly uspět, ale dnes vytvářejí náklady?",
+    sections: [
+      {
+        label: null,
+        items: [
+          "Autonomie a svoboda: každý si řídil nástroje a postupy sám → dnes brání standardizaci; navíc nelze říct \"přestaň\" bez náhrady",
+          "Nadšení pro velkou vizi: motor, který nás posouval → dnes nastavuje ambiciózní, ale vzájemně konfliktní cíle: růst obratu + ziskovost + \"11 z 10\" pro klienty = systém, který se sám přetěžuje"
+        ]
+      }
+    ],
+    highlight: "Co tě dostalo sem, tě nedostane tam."
+  },
+  {
+    q: "Q10",
+    title: "Kde leadership systém stabilizuje a kde ho zahlcuje?",
+    sections: [
+      {
+        label: "Stabilizující",
+        items: [
+          "<span class='person-tag tag-stable'>Martin</span> <span class='person-tag tag-stable'>Lenka</span> — stabilizují svým chováním",
+          "<span class='person-tag tag-stable'>Lukáš D.</span> — spíš stabilizující, ale krátce ve firmě",
+          "Strukturálně: ustanovení Strategy týmu + 6 prioritních oblastí + rozdělená odpovědnost"
+        ]
+      },
+      {
+        label: "Zahlcující / znejisťující",
+        items: [
+          "Konfliktní cíle jako trvalý tlak na systém",
+          "Jazyk a rétorika (růst, plnění cílů, inovace jako norma) → normalizuje přetížení, stává se standardem",
+          "<span class='person-tag tag-mixed'>Luboš</span> — obojí: dává strukturu, ale svými aktivitami systém zrychluje a zahlcuje",
+          "<span class='person-tag'>Jan</span> — stranou běžných odpovědností; nelze objektivně posoudit",
+          "<span class='person-tag'>Lukáš sám</span> — nejistý o vlastní roli (viz Q4)"
+        ]
+      },
+      {
+        label: "Lenka — zvláštní případ",
+        items: [
+          "Stabilizuje, ale na 0,2 úvazku → strukturálně křehké; nejasný dopad na strategický vliv její role",
+          "Paradox: právě ona nasvítila problém a donutila leadership ho začít řešit"
+        ]
+      }
+    ]
+  }
+];
+
+let current = 0;
+
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = questions.map((q, i) =>
+    `<button onclick="goTo(${i})" id="nav-${i}" class="${i === 0 ? 'active' : ''}">${q.q}</button>`
+  ).join('');
+}
+
+function renderCards() {
+  const container = document.getElementById('cards');
+  container.innerHTML = questions.map((q, i) => {
+    let sectionsHtml = '';
+    q.sections.forEach(section => {
+      if (section.label) {
+        sectionsHtml += `<div class="section-label">${section.label}</div>`;
+      }
+      sectionsHtml += '<ul>' + section.items.map(item =>
+        `<li>${item}</li>`
+      ).join('') + '</ul>';
+    });
+    const highlightHtml = q.highlight
+      ? `<div class="highlight"><strong>↳</strong> ${q.highlight}</div>`
+      : '';
+    return `
+      <div class="card ${i === 0 ? 'visible' : ''}" id="card-${i}">
+        <div class="card-header">
+          <span class="q-badge">${q.q}</span>
+          <h2>${q.title}</h2>
+        </div>
+        ${sectionsHtml}
+        ${highlightHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+function goTo(index) {
+  document.getElementById(`card-${current}`).classList.remove('visible');
+  document.getElementById(`nav-${current}`).classList.remove('active');
+  current = index;
+  document.getElementById(`card-${current}`).classList.add('visible');
+  document.getElementById(`nav-${current}`).classList.add('active');
+  document.getElementById('counter').textContent = `${current + 1} / ${questions.length}`;
+  document.getElementById('prevBtn').disabled = current === 0;
+  document.getElementById('nextBtn').disabled = current === questions.length - 1;
+  window.scrollTo(0, 0);
+}
+
+function navigate(dir) {
+  goTo(current + dir);
+}
+
+renderNav();
+renderCards();
+</script>
+</body>
+</html>
