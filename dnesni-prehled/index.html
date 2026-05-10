@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Dnesni Prehled",
+  "schemaVersion": 1,
+  "description": "Live daily status page for Lukáš — pulls fresh data from Google Calendar, RB Universe (deals + FIO balances), and Gmail on every open. Shows today's calendar events with RSVP status, overdue sales deals, deals closing this month, bank balances for both entities, and unread email count.",
+  "mcpTools": [
+    "mcp__b5d37fa0-4c9e-4a93-89a0-2eb26488a31f__list_events",
+    "mcp__6564d4f7-f706-4d73-b066-94ef95c981ee__search_deals",
+    "mcp__6564d4f7-f706-4d73-b066-94ef95c981ee__get_fio_balances",
+    "mcp__ed99f3dc-67e3-464e-b745-ca62961b707a__search_threads"
+  ],
+  "mcpServerNames": [
+    "Google Calendar",
+    "RB Universe",
+    "RB Universe",
+    "Gmail"
+  ]
+}
+</script>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Dnešní přehled</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f5f7;
+  color: #1d1d1f;
+  padding: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+.date-badge {
+  font-size: 12px;
+  color: #6e6e73;
+  background: #e8e8ed;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+}
+
+.card.full { grid-column: 1 / -1; }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6e6e73;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  min-width: 22px;
+  text-align: center;
+}
+.badge-red    { background:#ffeef0; color:#c0392b; }
+.badge-orange { background:#fff3e0; color:#e67e22; }
+.badge-green  { background:#e8f5e9; color:#27ae60; }
+.badge-blue   { background:#e3f2fd; color:#1565c0; }
+.badge-gray   { background:#f0f0f5; color:#6e6e73; }
+
+/* ── Calendar ── */
+.ev {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f0f5;
+}
+.ev:last-child { border-bottom: none; }
+.ev-time {
+  font-size: 11px;
+  color: #6e6e73;
+  width: 72px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.ev-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+.ev-loc {
+  font-size: 11px;
+  color: #6e6e73;
+  margin-top: 1px;
+}
+.ev-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+.pill {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.pill-green  { background:#e8f5e9; color:#27ae60; }
+.pill-red    { background:#ffeef0; color:#c0392b; }
+.pill-orange { background:#fff3e0; color:#e67e22; }
+.pill-blue   { background:#e3f2fd; color:#1565c0; }
+a.meet-link {
+  font-size: 11px;
+  color: #007aff;
+  text-decoration: none;
+}
+a.meet-link:hover { text-decoration: underline; }
+
+/* ── Deals ── */
+.deal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.deal {
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: #f8f8fa;
+}
+.deal-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1d1d1f;
+  line-height: 1.3;
+  margin-bottom: 3px;
+}
+.deal-org {
+  font-size: 11px;
+  color: #6e6e73;
+}
+.deal-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.deal-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+.overdue-tag { color: #c0392b; font-size: 11px; font-weight: 500; }
+.soon-tag    { color: #e67e22; font-size: 11px; font-weight: 500; }
+
+/* ── Finance ── */
+.fin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.fin-item {
+  background: #f8f8fa;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.fin-label {
+  font-size: 11px;
+  color: #6e6e73;
+  margin-bottom: 3px;
+}
+.fin-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+.fin-sub {
+  font-size: 10px;
+  color: #aeaeb2;
+  margin-top: 1px;
+}
+
+/* ── Email ── */
+.mail-item {
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f0f5;
+}
+.mail-item:last-child { border-bottom: none; }
+.mail-from    { font-size: 12px; font-weight: 600; }
+.mail-subject { font-size: 12px; color: #3d3d3f; }
+.mail-snippet { font-size: 11px; color: #6e6e73; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── Shimmer ── */
+.shim {
+  height: 13px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 400% 100%;
+  animation: shim 1.4s infinite;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+@keyframes shim { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+
+.empty { font-size: 12px; color: #6e6e73; text-align: center; padding: 12px 0; }
+.err   { font-size: 11px; color: #c0392b; padding: 6px 0; }
+
+.footer {
+  font-size: 11px;
+  color: #aeaeb2;
+  text-align: right;
+  margin-top: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ Dnešní přehled</h1>
+  <span class="date-badge" id="today-date">—</span>
+</div>
+
+<div class="grid">
+
+  <!-- CALENDAR -->
+  <div class="card" id="card-cal">
+    <div class="card-header">
+      <span class="card-title">📅 Kalendář dnes</span>
+      <span class="badge badge-blue" id="cal-badge">…</span>
+    </div>
+    <div id="cal-body">
+      <div class="shim" style="width:80%"></div>
+      <div class="shim" style="width:60%"></div>
+      <div class="shim" style="width:72%"></div>
+    </div>
+  </div>
+
+  <!-- EMAIL -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📧 Nepřečtené emaily</span>
+      <span class="badge badge-gray" id="mail-badge">…</span>
+    </div>
+    <div id="mail-body">
+      <div class="shim" style="width:70%"></div>
+      <div class="shim" style="width:50%"></div>
+    </div>
+  </div>
+
+  <!-- OVERDUE DEALS -->
+  <div class="card full">
+    <div class="card-header">
+      <span class="card-title">🔴 Overdue dealy</span>
+      <span class="badge badge-red" id="overdue-badge">…</span>
+    </div>
+    <div id="overdue-body">
+      <div class="shim"></div>
+      <div class="shim" style="width:85%"></div>
+    </div>
+  </div>
+
+  <!-- THIS MONTH DEALS -->
+  <div class="card full">
+    <div class="card-header">
+      <span class="card-title">⏳ Uzavírají se tento měsíc</span>
+      <span class="badge badge-orange" id="soon-badge">…</span>
+    </div>
+    <div id="soon-body">
+      <div class="shim"></div>
+      <div class="shim" style="width:75%"></div>
+    </div>
+  </div>
+
+  <!-- FINANCE -->
+  <div class="card full">
+    <div class="card-header">
+      <span class="card-title">💰 FIO zůstatky</span>
+      <span style="font-size:10px;color:#aeaeb2" id="fio-ts">—</span>
+    </div>
+    <div class="fin-grid" id="fin-body">
+      <div class="shim"></div><div class="shim"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer" id="footer">Načítám…</div>
+
+<script>
+(async () => {
+  const now = new Date();
+  document.getElementById('today-date').textContent =
+    now.toLocaleDateString('cs-CZ', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  const todayStr = now.toISOString().split('T')[0];
+
+  function czk(v) {
+    if (v == null) return '—';
+    return new Intl.NumberFormat('cs-CZ', { style:'currency', currency:'CZK', maximumFractionDigits:0 }).format(v);
+  }
+  function hhmm(dt) {
+    return new Date(dt).toLocaleTimeString('cs-CZ', { hour:'2-digit', minute:'2-digit' });
+  }
+  function daysDiff(s) {
+    return Math.round((new Date(s + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / 86400000);
+  }
+  function isOverdue(s) { return s && daysDiff(s) < 0; }
+  function isThisMonth(s) { return s && s.startsWith(todayStr.slice(0, 7)); }
+  function overdueText(s) {
+    const d = Math.abs(daysDiff(s));
+    return d === 1 ? '1 den po termínu' : d < 5 ? `${d} dny po termínu` : `${d} dní po termínu`;
+  }
+  function soonText(s) {
+    const d = daysDiff(s);
+    return d === 0 ? 'dnes' : d === 1 ? 'zítra' : `za ${d} dní`;
+  }
+
+  const MY = 'lukas@redbuttonedu.cz';
+
+  const [calR, dealsR, fioR, mailR] = await Promise.allSettled([
+    window.cowork.callMcpTool('mcp__b5d37fa0-4c9e-4a93-89a0-2eb26488a31f__list_events', {
+      startTime: todayStr + 'T00:00:00',
+      endTime:   todayStr + 'T23:59:59',
+      timeZone: 'Europe/Prague',
+      orderBy: 'startTime',
+      pageSize: 20
+    }),
+    window.cowork.callMcpTool('mcp__6564d4f7-f706-4d73-b066-94ef95c981ee__search_deals', {
+      status: 'open', limit: 50
+    }),
+    window.cowork.callMcpTool('mcp__6564d4f7-f706-4d73-b066-94ef95c981ee__get_fio_balances', {}),
+    window.cowork.callMcpTool('mcp__ed99f3dc-67e3-464e-b745-ca62961b707a__search_threads', {
+      query: 'is:unread in:inbox', pageSize: 20
+    })
+  ]);
+
+  /* ── CALENDAR ── */
+  const calBody  = document.getElementById('cal-body');
+  const calBadge = document.getElementById('cal-badge');
+  if (calR.status === 'fulfilled') {
+    const raw = calR.value?.events || [];
+    const evs = raw.filter(e => {
+      const s = e.summary || '';
+      return !s.startsWith('Take transit') && !s.includes('Decompress') && !s.toLowerCase().includes('reclaim buffer');
+    });
+    calBadge.textContent = evs.length;
+    if (!evs.length) {
+      calBody.innerHTML = '<div class="empty">Prázdný kalendář 🎉</div>';
+    } else {
+      calBody.innerHTML = evs.map(e => {
+        const tStr = e.start?.dateTime
+          ? hhmm(e.start.dateTime) + ' – ' + hhmm(e.end.dateTime)
+          : 'Celý den';
+        const att = e.attendees?.find(a => a.email === MY || a.self);
+        const rsvp = att?.responseStatus;
+        const pillMap = { accepted:'<span class="pill pill-green">Přijato</span>',
+                          declined:'<span class="pill pill-red">Odmítnuto</span>',
+                          tentative:'<span class="pill pill-orange">Možná</span>' };
+        const rsvpPill = pillMap[rsvp] || '';
+        const locLine = e.location
+          ? `<div class="ev-loc">📍 ${e.location.split(',')[0]}</div>` : '';
+        const meetLink = e.conferenceUrl
+          ? `<a class="meet-link" href="${e.conferenceUrl}" target="_blank">🎥 Meet</a>` : '';
+        return `<div class="ev">
+          <div class="ev-time">${tStr}</div>
+          <div>
+            <div class="ev-title">${e.summary || '(bez názvu)'}</div>
+            ${locLine}
+            <div class="ev-row">${rsvpPill}${meetLink}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  } else {
+    calBody.innerHTML = '<div class="err">Chyba načítání kalendáře</div>';
+    calBadge.textContent = '!';
+  }
+
+  /* ── DEALS ── */
+  const deals = dealsR.status === 'fulfilled' ? (dealsR.value?.results || []) : [];
+
+  const overdue   = deals.filter(d => isOverdue(d.expected_close_date))
+                         .sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date));
+  const thisMonth = deals.filter(d => !isOverdue(d.expected_close_date) && isThisMonth(d.expected_close_date))
+                         .sort((a,b) => new Date(a.expected_close_date) - new Date(b.expected_close_date));
+
+  function dealCard(d, tagHtml) {
+    return `<div class="deal">
+      <div class="deal-name">${d.title}</div>
+      <div class="deal-org">${d.organization_name || ''}</div>
+      <div class="deal-meta">
+        <span class="deal-val">${czk(d.value_czk)}</span>
+        ${tagHtml}
+      </div>
+    </div>`;
+  }
+
+  const overdueBody  = document.getElementById('overdue-body');
+  const overdueBadge = document.getElementById('overdue-badge');
+  overdueBadge.textContent = overdue.length;
+  overdueBody.innerHTML = overdue.length
+    ? `<div class="deal-grid">${overdue.map(d => dealCard(d, `<span class="overdue-tag">▲ ${overdueText(d.expected_close_date)}</span>`)).join('')}</div>`
+    : '<div class="empty">Žádné overdue dealy 🎉</div>';
+
+  const soonBody  = document.getElementById('soon-body');
+  const soonBadge = document.getElementById('soon-badge');
+  soonBadge.textContent = thisMonth.length;
+  soonBody.innerHTML = thisMonth.length
+    ? `<div class="deal-grid">${thisMonth.map(d => dealCard(d, `<span class="soon-tag">📅 ${soonText(d.expected_close_date)}</span>`)).join('')}</div>`
+    : '<div class="empty">Žádné dealy tento měsíc</div>';
+
+  /* ── FINANCE ── */
+  const finBody = document.getElementById('fin-body');
+  const fioTs   = document.getElementById('fio-ts');
+  if (fioR.status === 'fulfilled' && fioR.value?.items) {
+    const items = fioR.value.items;
+    const snap = items[0]?.snapshot_at;
+    if (snap) {
+      const d = new Date(snap);
+      fioTs.textContent = 'snapshot ' + d.toLocaleDateString('cs-CZ', { day:'numeric', month:'numeric' })
+        + ' ' + d.toLocaleTimeString('cs-CZ', { hour:'2-digit', minute:'2-digit' });
+    }
+    const hawCZK = fioR.value.haw_sum_czk;
+    const rbCZK  = fioR.value.rb_associates_sum_czk;
+    const hawEUR = items.find(i => i.account_name?.includes('Happiness') && i.currency === 'EUR')?.balance;
+    const rbEUR  = items.find(i => i.account_name?.includes('RB Associates') && i.currency === 'EUR')?.balance;
+    finBody.innerHTML = `
+      <div class="fin-item">
+        <div class="fin-label">Happiness at Work – celkem</div>
+        <div class="fin-val">${czk(hawCZK)}</div>
+        ${hawEUR != null ? `<div class="fin-sub">${hawEUR.toLocaleString('cs-CZ',{minimumFractionDigits:2})} EUR</div>` : ''}
+      </div>
+      <div class="fin-item">
+        <div class="fin-label">RB Associates – celkem</div>
+        <div class="fin-val">${czk(rbCZK)}</div>
+        ${rbEUR != null ? `<div class="fin-sub">${rbEUR.toLocaleString('cs-CZ',{minimumFractionDigits:2})} EUR</div>` : ''}
+      </div>`;
+  } else {
+    finBody.innerHTML = '<div class="err" style="grid-column:1/-1">Chyba načítání financí</div>';
+  }
+
+  /* ── EMAIL ── */
+  const mailBody  = document.getElementById('mail-body');
+  const mailBadge = document.getElementById('mail-badge');
+  if (mailR.status === 'fulfilled') {
+    const threads = mailR.value?.threads || mailR.value?.items || [];
+    mailBadge.textContent = threads.length;
+    if (!threads.length) {
+      mailBadge.className = 'badge badge-green';
+      mailBody.innerHTML = '<div class="empty">Inbox zero! 🎉</div>';
+    } else {
+      mailBadge.className = 'badge badge-red';
+      mailBody.innerHTML = threads.slice(0, 6).map(t => {
+        const msg = t.messages?.[0] || {};
+        const from    = (msg.from || t.from || '').replace(/<[^>]+>/, '').trim() || '?';
+        const subject = msg.subject || t.subject || '(bez předmětu)';
+        const snippet = msg.snippet || t.snippet || '';
+        return `<div class="mail-item">
+          <div class="mail-from">${from}</div>
+          <div class="mail-subject">${subject}</div>
+          <div class="mail-snippet">${snippet}</div>
+        </div>`;
+      }).join('') + (threads.length > 6 ? `<div style="font-size:11px;color:#6e6e73;padding:5px 0">+ ${threads.length - 6} dalších</div>` : '');
+    }
+  } else {
+    mailBody.innerHTML = '<div class="err">Chyba načítání emailů</div>';
+    mailBadge.textContent = '!';
+  }
+
+  document.getElementById('footer').textContent =
+    'Aktualizováno: ' + now.toLocaleTimeString('cs-CZ', { hour:'2-digit', minute:'2-digit' });
+})();
+</script>
+</body>
+</html>
