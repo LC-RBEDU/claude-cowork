@@ -416,10 +416,10 @@ const PROJ_ORDER = ["strategy","firemni-procesy","rb-universe-development","fina
 // ── LINKIFY ───────────────────────────
 function linkify(text){
   // Pattern "↗ label: URL" → ↗ <a>label</a>
-  const m = text.match(/^(↗\s*)(.+?):\s*(https?:\/\/.+)$/);
-  if(m) return `${m[1]}<a href="${m[3].trim()}" target="_blank" style="color:#185FA5;text-decoration:underline;font-weight:500">${m[2]}</a>`;
+  const m = text.match(/^(↗\s*)(.*?):\s*(https?:\/\/\S+)$/);
+  if(m) return `${m[1]}<a href="${m[3]}" target="_blank" style="color:#185FA5;text-decoration:none;font-weight:500">${m[2]}</a>`;
   // General: bare URLs → clickable
-  return text.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" style="color:#185FA5;text-decoration:underline">$1</a>');
+  return text.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" style="color:#185FA5;text-decoration:none">$1</a>');
 }
 
 // ── UTILS ─────────────────────────────
