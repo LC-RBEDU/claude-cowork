@@ -510,11 +510,7 @@ function showProject(key){
   }
   if(bt.length){
     h+=`<div class="blk"><div class="blt">Backlog</div>`;
-    bt.forEach(t=>{
-      let bch='';
-      if(t.ch&&t.ch.length) bch=`<div class="tch">${t.ch.map((c,i)=>`<div class="ch"><div class="cb${c.d?' d':''}">${c.d?'✓':''}</div><span class="ch-num">${i+1}.</span><span class="${c.d?'cd':''}">${linkify(c.t)}</span></div>`).join('')}</div>`;
-      h+=`<div class="bi"><span class="bid">${t.id}</span><b>${t.name}</b>${bch}</div>`;
-    });
+    bt.forEach(t=>{ h+=`<div class="bi"><span class="bid">${t.id}</span><b>${t.name}</b></div>`; });
     h+=`</div>`;
   }
   if(p.watch&&p.watch.length){
