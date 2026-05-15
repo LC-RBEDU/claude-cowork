@@ -383,7 +383,28 @@ const TASKS = [
    name:"Karpathy vibe coding guidelines pro Cursor",
    ch:[{t:"↗ GitHub — karpathy-guidelines.mdc: https://github.com/forrestchang/andrej-karpathy-skills/blob/main/.cursor/rules/karpathy-guidelines.mdc",d:false}]},
   {p:"Backlog",id:"I4",st:"ns",proj:"obecna-inspirace",dl:null,ice:{i:3,c:6,e:9},
-   name:"Fyzioterapeut Ptáček",ch:[]}
+   name:"Fyzioterapeut Ptáček",ch:[]},
+
+  // ── PŘIDÁNO TRIAGE 16. 5. 2026 ───────
+  {p:"ASAP",id:"T22",st:"ns",proj:"rb-universe-development",dl:"2026-05-16",ice:{i:9,c:9,e:8},
+   name:"Fix: odměna zmizela z karet + nefungující hromadný přesun",
+   ch:[{t:"↗ Původní zpráva (odměna): https://rb-edu.slack.com/archives/D0AN5JESBML/p1778852115884159",d:false},{t:"↗ Původní zpráva (hromadný přesun): https://rb-edu.slack.com/archives/D0AN5JESBML/p1778852310010359?thread_ts=1778852310.010359&cid=D0AN5JESBML",d:false},{t:"Bug #1: dohledat co způsobilo zmizení odměny z karet, obnovit data (Pavla Vaňková, Michaela Gonzáles Valdez)",d:false},{t:"Bug #2: reprodukovat nefungující hromadný přesun kandošů, opravit",d:false},{t:"Potvrdit Káťě fix",d:false}]},
+
+  {p:"Next",id:"T23",st:"wt",proj:"rb-universe-development",dl:null,ice:{i:7,c:7,e:5},
+   name:"MVP karet externistů v RB Universe",
+   ch:[{t:"Počkat na tabulku externistů od Martina R. (IČO + LinkedIn profily)",d:false},{t:"Navrhnout datový model karet externistů (témata, typ, kapacita, fakturace)",d:false},{t:"Zpracovat MVP: karta per externista + projekty + fakturace",d:false},{t:"Sekce organigram: delivery externisti pod Martin Ruman",d:false},{t:"Medailonek jako veřejné view (jen vybrané fieldy)",d:false}]},
+
+  {p:"Next",id:"H4",st:"ns",proj:"obchodni-podminky-rb-edu",dl:"2026-05-22",ice:{i:7,c:8,e:7},
+   name:"Aktualizovat VOP: storno podmínky na pracovní dny",
+   ch:[{t:"Otevřít aktuální VOP, najít sekci storno podmínek",d:false},{t:"Upravit: kalendářní dny → pracovní dny (vzor: 14 dní → 10 pracovních)",d:false},{t:"Sladit se storno podmínkami v delivery průvodci pro externisty (viz P3)",d:false},{t:"Poslat Martinovi R. k odsouhlasení",d:false}]},
+
+  {p:"Next",id:"PD4",st:"ns",proj:"pipedrive-a-dalsi-nastroje",dl:null,ice:{i:6,c:8,e:7},
+   name:"Zjistit možnosti: LOST reason Allfred → Pipedrive",
+   ch:[{t:"↗ Původní zpráva (Pavel Kroupa): https://rb-edu.slack.com/archives/C0ADUR4R8UR/p1778816268572789?thread_ts=1778816268.572789&cid=C0ADUR4R8UR",d:false},{t:"↗ Pipedrive deal #6856: https://redbuttoncz.pipedrive.com/deal/6856",d:false},{t:"Prověřit, zda Allfred API umí při LOST eventu přenést reason code do PD",d:false},{t:"Pokud ne → zjistit webhook nebo workaround",d:false},{t:"Rozhodnout: řešit nebo vědomě ignorovat",d:false}]},
+
+  {p:"Next",id:"P17",st:"ns",proj:"firemni-procesy",dl:"2026-05-22",ice:{i:8,c:9,e:8},
+   name:"Otestovat Allfred write API: brands + clients + billing entities",
+   ch:[{t:"Připravit testovací volání: createBrand, updateBrand, createClient, updateClient, createBillingEntity, updateBillingEntity",d:false},{t:"Otestovat na pár příkladech v dev/stage prostředí",d:false},{t:"Zaznamenat výsledky — co funguje, co ne, jaká jsou omezení",d:false},{t:"Navrhnout next steps pro integraci do RB Universe sync procesu",d:false}]}
 ];
 
 // ── PROJECT METADATA ──────────────────
