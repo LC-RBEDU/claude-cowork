@@ -289,17 +289,15 @@ async function loadData() {
       'mcp__b6cb3d09-6578-4906-90ec-862974e792ce__download_file_content',
       { fileId: FILE_ID }
     );
-    // Formát: result.content[0].text → JSON string → { id, title, mimeType, content: "<base64>" }
+    // result.content přichází jako text (ne base64 — MCP wrapper už dekóduje)
     let jsonStr;
     if (typeof result === 'string') {
       jsonStr = result;
-    } else if (result && Array.isArray(result.content) && result.content[0] && result.content[0].text) {
-      const inner = JSON.parse(result.content[0].text);
-      jsonStr = atob(inner.content);
     } else if (result && typeof result.content === 'string') {
+      // zkusíme nejdřív přímý text, fallback na base64
       try { jsonStr = atob(result.content); } catch(e) { jsonStr = result.content; }
     } else {
-      throw new Error('Neočekávaný formát: ' + JSON.stringify(result).slice(0, 200));
+      throw new Error('Neočekávaný formát odpovědi: ' + JSON.stringify(result).slice(0, 200));
     }
     const data = JSON.parse(jsonStr);
     TASKS = data.tasks;
