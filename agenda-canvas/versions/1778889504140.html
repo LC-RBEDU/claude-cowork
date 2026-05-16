@@ -89,7 +89,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .sflabel{font-size:10px;color:#bbb;font-weight:500;letter-spacing:.05em;text-transform:uppercase;margin-right:2px}
 .stab{font-size:11px;font-weight:500;padding:3px 10px;border-radius:99px;border:1px solid #e0ddd5;color:#888;background:#fff;cursor:pointer}
 .stab.sa{border-color:transparent}
-.sa-all.sa{background:#1a1a18;color:#fff}.sa-active.sa{background:#1a1a18;color:#fff}.sa-ns.sa{background:#d8d5ce;color:#444}
+.sa-all.sa{background:#1a1a18;color:#fff}.sa-ns.sa{background:#d8d5ce;color:#444}
 .sa-ip.sa{background:#1A68B0;color:#fff}.sa-wt.sa{background:#B45309;color:#fff}.sa-dn.sa{background:#1D9E75;color:#fff}
 .ice-legend{font-size:11px;color:#aaa;background:#fff;border:.5px solid #e8e5de;border-radius:8px;padding:5px 10px;margin-bottom:14px;display:inline-flex;gap:8px;align-items:center}
 .ice-legend b{color:#555;font-weight:600}
@@ -201,8 +201,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
   </div>
   <div class="sfilters">
     <span class="sflabel">Status</span>
-    <button class="stab sa-all" onclick="setSFilter('all',this)">Vše</button>
-    <button class="stab sa-active sa" onclick="setSFilter('active',this)">Active</button>
+    <button class="stab sa-all sa" onclick="setSFilter('all',this)">Vše</button>
     <button class="stab sa-ns" onclick="setSFilter('ns',this)">Not started</button>
     <button class="stab sa-ip" onclick="setSFilter('ip',this)">In progress</button>
     <button class="stab sa-wt" onclick="setSFilter('wt',this)">Waiting</button>
@@ -477,7 +476,7 @@ function backToCanvas(){
 // ══════════════════════════════════════════════════════════
 //  TASK LIST VIEW
 // ══════════════════════════════════════════════════════════
-let curP='all', curS='active', curSort='ice', expanded={};
+let curP='all', curS='all', curSort='ice', expanded={};
 
 function setPFilter(f,btn){
   curP=f;
@@ -532,11 +531,9 @@ function renderTaskList(){
   document.getElementById('cnt-next').textContent=tot.Next;
   document.getElementById('cnt-bl').textContent=tot.Backlog;
 
-  const stFilter = t => curS==='all' ? true : curS==='active' ? t.st!=='dn' : t.st===curS;
-
   if(curSort==='dl'){
     // Flat sort by deadline, ignoring priority grouping
-    let tasks = TASKS.filter(t=>curP==='all'||t.p===curP).filter(stFilter);
+    let tasks = TASKS.filter(t=>curP==='all'||t.p===curP).filter(t=>curS==='all'||t.st===curS);
     tasks = sortByDl(tasks);
     if(!tasks.length) return;
     const sec=document.createElement('div'); sec.className='section';
@@ -546,7 +543,7 @@ function renderTaskList(){
   } else {
     // Default: group by priority, sort by ICE
     (curP==='all'?['ASAP','Next','Backlog']:[curP]).forEach(prio=>{
-      const tasks=TASKS.filter(t=>t.p===prio).filter(stFilter).sort((a,b)=>ice(b)-ice(a));
+      const tasks=TASKS.filter(t=>t.p===prio).filter(t=>curS==='all'||t.st===curS).sort((a,b)=>ice(b)-ice(a));
       if(!tasks.length) return;
       const sec=document.createElement('div'); sec.className='section';
       sec.innerHTML=`<div class="sec-header"><span class="sec-pill ${PILL[prio]}">${prio}</span><span class="sec-count">${tasks.length} úkolů</span><div class="sec-line"></div></div>`;
