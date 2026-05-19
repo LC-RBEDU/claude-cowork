@@ -2,31 +2,39 @@
 
 4 workflows. Každý je samostatný JSON, importovatelný do n8n.
 
+## Google Drive — MrLUC INBOX
+
+| | |
+|--|--|
+| **INBOX root** | [01-INBOX](https://drive.google.com/drive/u/0/folders/1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur) |
+| **Folder ID (root)** | `1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur` |
+| **Podsložky** | `slack/`, `sembly/`, `email/`, `uploads/`, `manual/` — každá má **vlastní** folder ID v URL |
+
+Po přesunu INBOXu na Drive zkopíruj ID z URL každé podsložky do příslušného workflow (node „Save to Drive“ → `folderId`).  
+Šablony používají placeholdery `REPLACE_WITH_INBOX_*_FOLDER_ID` — v produkční n8n instanci už máš nastaveno v UI.
+
 ## Workflows
 
 | Soubor | Co dělá | Čeká na |
 |--------|---------|---------|
-| `sembly-to-cowork.json` | **Webhook** z Sembly Custom Automation → .md na Drive (POST, path `sembly-cowork-transcript`) | Veřejná n8n URL, Google Drive credential |
-| `slack-reaction-capture.json` | **Nová zpráva** v jednom kanálu (typicky private capture) → `.md` na Drive → po uložení **✅** k původní zprávě | Slack credential + ID kanálu + `message.groups`/`message.channels` + scope `reactions:write` (viz `slack-app-setup-checklist.md`) |
-| `email-to-cowork.json` | Pollne Gmail s filtrem `to:lukas.cypra+cowork@gmail.com`, ukládá jako .md + **vloží text exportu** z odkazů Google Docs/Sheets/Slides (Drive API); paralelně **nahraje přílohy** (PDF atd.) přes „Drive: Upload příloh“ | Gmail OAuth + **stejný Drive OAuth i na Code nodu** „Format → Markdown“; **Gmail trigger: Simplify OFF**; druhá Drive složka `REPLACE_WITH_FOLDER_ID_OF_INBOX_EMAIL_ATTACHMENTS` (nebo stejné ID jako u .md) |
-| `mobile-capture-to-cowork.json` | **Webhook** z iOS Shortcutů (POST, path `cowork-mobile-capture`) → .md do `INBOX/mobile/` | Google Drive credential + ID složky `INBOX/mobile/`. Setup viz `ŠABLONY/ios-shortcut-setup.md` |
+| `sembly-to-cowork.json` | **Webhook** z Sembly → `.md` do `01-INBOX/sembly/` | Veřejná n8n URL, Drive credential, folder ID sembly |
+| `slack-reaction-capture.json` | Nová zpráva v capture kanálu → `.md` → `01-INBOX/slack/` | Slack + Drive; viz `slack-app-setup-checklist.md` |
+| `email-to-cowork.json` | Gmail `to:lukas.cypra+cowork@gmail.com` → `01-INBOX/email/` | Gmail + Drive; přílohy do stejné nebo `email-attachments` podsložky |
+| `mobile-capture-to-cowork.json` | Webhook iOS → `01-INBOX/manual/` | Drive folder ID pro `manual/` |
 
 ## Společné předpoklady
 
-- n8n self-hosted (potvrzeno v O MNĚ/about-me.md)
-- **Google Drive credential** v n8n s přístupem do Cowork složky (servisní účet nebo OAuth na `lukas@redbuttonedu.cz`)
-- Cílová Drive cesta = `CLAUDE COWORK/INBOX/<podsložka>/`
+- n8n self-hosted
+- **Google Drive credential** — cíl = `MrLUC/01-INBOX/<podsložka>/` na Drive (sync s iCloud vaultem; SSOT Obsidian MrLUC)
+- Slack: jen inbound capture
 
 ## Postup importu
 
-1. V n8n → Workflows → Import from File → vyber JSON
-2. Otevři workflow → klikni na první ikonku (input/trigger) → nastav credentials
-3. Otevři "Google Drive" / "Save to Drive" node → ověř, že parent folder = Cowork `INBOX/<podsložka>/` (folder ID najdeš v Drive URL)
+1. n8n → Workflows → Import from File
+2. Nastav credentials na triggerech a Drive nodech
+3. U každého „Save to Drive“ ověř `folderId` = konkrétní podsložka pod root `1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur`
 4. Activate workflow
 
-## Tipy
+## VPS triage
 
-- Začni se Sembly (nejjednodušší, nejméně závislostí)
-- Slack potřebuje vytvořenou appku (postupuj podle `slack-app-setup-checklist.md`)
-- Email potřebuje jen Gmail OAuth, nicméně **filter** musíš ověřit, ať to nesype úplně všechno
-- Mobile capture: po Activate zkopíruj Production URL z Webhook nodu do iOS Shortcutů (návod v `ios-shortcut-setup.md`); zvaž basic auth, je to veřejný endpoint
+Cron na **coolify-dev** čte `/data/mrluc/01-INBOX/{slack,sembly,email,uploads,manual}/` — sync vaultu viz `vps/second-brain-hub/README.md`.

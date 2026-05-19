@@ -95,7 +95,7 @@
         "folderId": {
           "__rl": true,
           "mode": "id",
-          "value": "1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm"
+          "value": "REPLACE_WITH_INBOX_SLACK_FOLDER_ID"
         },
         "options": {}
       },
@@ -213,7 +213,7 @@
     "V n8n nastav channelId na ID toho kanálu (z URL / Channel details). Watch Whole Workspace = false.",
     "Slack app: Event Subscriptions → Bot events přidej message.groups (soukromý kanál) a případně message.channels (veřejný). reaction_added už nepotřebuješ.",
     "Scopes: channels:history + groups:history (už v checklistu). Bot musí být členem capture kanálu.",
-    "REPLACE_WITH_PRIVATE_CAPTURE_CHANNEL_ID — ID Slack capture kanálu (C…). Drive folderId: 1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm",
+    "INBOX root Drive: 1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur — slack subfolder ID → REPLACE_WITH_INBOX_SLACK_FOLDER_ID",
     "Filtrovat zprávy: vyřazuje systémové subtype a bot_message; uprav podle potřeby."
   ]
 }

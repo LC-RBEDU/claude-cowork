@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run ON coolify-dev as user ops (docker access). Creates Coolify project + app if missing.
-# Does NOT print API tokens.
+# Cron-only: no public FQDN / Traefik route.
 set -euo pipefail
 
 PROJECT_NAME="Second Brain"
@@ -8,7 +8,6 @@ APP_NAME="second-brain-hub"
 GIT_REPO="LC-RBEDU/claude-cowork"
 GIT_BRANCH="main"
 BASE_DIR="/vps/second-brain-hub"
-DOMAIN="https://second-brain.dev.redbuttonedu.cz"
 GITHUB_APP_SOURCE_ID=4
 TEAM_ID=0
 SERVER_DESTINATION_ID=0
@@ -28,7 +27,7 @@ else
   PROJECT_UUID=$(gen_uuid)
   PROJECT_ID=$($PSQL -c \
     "INSERT INTO projects (uuid, name, description, team_id, created_at, updated_at)
-     VALUES ('${PROJECT_UUID}', '${PROJECT_NAME}', 'MrLUC dashboard + triage cron', ${TEAM_ID}, NOW(), NOW())
+     VALUES ('${PROJECT_UUID}', '${PROJECT_NAME}', 'MrLUC triage cron (no public HTTP)', ${TEAM_ID}, NOW(), NOW())
      RETURNING id;")
   echo "Created project id=${PROJECT_ID} uuid=${PROJECT_UUID}"
 fi
@@ -48,6 +47,10 @@ APP_ID=$($PSQL -c \
 if [[ -n "${APP_ID}" ]]; then
   echo "Application already exists id=${APP_ID}"
   APP_UUID=$($PSQL -c "SELECT uuid FROM applications WHERE id=${APP_ID};")
+  docker exec coolify-db psql -U coolify -d coolify -q -c \
+    "UPDATE applications SET fqdn=NULL, ports_exposes='', health_check_enabled=false, updated_at=NOW()
+     WHERE id=${APP_ID};"
+  echo "Updated app ${APP_ID}: fqdn cleared, no exposed port, health check off"
 else
   APP_UUID=$(gen_uuid)
   APP_ID=$($PSQL -c \
@@ -63,14 +66,14 @@ else
       created_at, updated_at, description, health_check_type
     ) VALUES (
       '${APP_UUID}', '${APP_NAME}', '${GIT_REPO}', '${GIT_BRANCH}', 'HEAD', 'dockerfile', 'nginx:alpine',
-      '80', '${BASE_DIR}', '/', '/', 'localhost', 'GET', 200, 'http',
+      '', '${BASE_DIR}', '/', '/', 'localhost', 'GET', 200, 'http',
       5, 5, 10, 5,
       '0', '0', 60, '0', '0', 1024, 'exited:unknown', '{{pr_id}}.{{domain}}',
       'App\Models\StandaloneDocker', ${SERVER_DESTINATION_ID},
       'App\Models\GithubApp', ${GITHUB_APP_SOURCE_ID}, ${ENV_ID},
-      true, '/Dockerfile', '${DOMAIN}',
+      false, '/Dockerfile', NULL,
       '-v /data/mrluc-second-brain:/data/mrluc',
-      NOW(), NOW(), 'Second Brain — MrLUC dashboard + supercronic', 'http'
+      NOW(), NOW(), 'Second Brain — MrLUC triage cron only', 'http'
     ) RETURNING id;")
   echo "Created application id=${APP_ID} uuid=${APP_UUID}"
 
@@ -84,7 +87,7 @@ else
       is_env_sorting_enabled, is_container_label_readonly_enabled, is_preserve_repository_enabled,
       disable_build_cache, is_spa, is_git_shallow_clone_enabled, is_pr_deployments_public_enabled,
       use_build_secrets, inject_build_args_to_dockerfile, include_source_commit_in_build, docker_images_to_keep)
-     VALUES (false, true, true, true, true, false, false, ${APP_ID}, NOW(), NOW(), false, false, 'nvidia',
+     VALUES (false, true, true, true, false, false, false, ${APP_ID}, NOW(), NOW(), false, false, 'nvidia',
       false, true, false, false, false, true, true, false, true, false, true, false, false, false, true, false,
       false, true, false, 2);"
 
@@ -99,7 +102,7 @@ QUEUE_ID=$($PSQL -c \
      pull_request_id, force_rebuild, is_webhook, restart_only,
      server_id, destination_id, application_name, server_name
    )
-   SELECT '${APP_ID}', '${DEPLOY_UUID}', 'queued', NOW(), NOW(), 'HEAD',
+   SELECT '${APP_ID}', '${DEPLOY_UUID}', 'queued', NOW(), NOW(),
      0, false, false, false,
      0, '0', '${APP_NAME}', 'DEVELOPMENT SERVER'
    WHERE NOT EXISTS (
@@ -112,5 +115,5 @@ if [[ -n "${QUEUE_ID}" ]]; then
 fi
 
 echo "Done. App UUID: ${APP_UUID:-$($PSQL -c "SELECT uuid FROM applications WHERE id=${APP_ID};")}"
-echo "Domain: ${DOMAIN}"
+echo "Public URL: none (cron-only)"
 echo "Branch: ${GIT_BRANCH} (auto_deploy should be enabled in application_settings)"

@@ -73,7 +73,7 @@
         "folderId": {
           "__rl": true,
           "mode": "id",
-          "value": "REPLACE_WITH_FOLDER_ID_OF_INBOX_EMAIL_ATTACHMENTS"
+          "value": "REPLACE_WITH_INBOX_EMAIL_ATTACHMENTS_FOLDER_ID"
         },
         "options": {}
       },
@@ -106,7 +106,7 @@
         "folderId": {
           "__rl": true,
           "mode": "id",
-          "value": "REPLACE_WITH_FOLDER_ID_OF_INBOX_EMAIL"
+          "value": "REPLACE_WITH_INBOX_EMAIL_FOLDER_ID"
         },
         "options": {}
       },
@@ -298,7 +298,7 @@
     "Filter q: 'to:lukas.cypra+cowork@gmail.com -in:trash'",
     "Přílohy: Gmail je dává do item.binary; „Format → Markdown“ je předává dál a sekce v .md je jen přehled. Skutečný upload dělá větev „Code: Přílohy → položky“ → „Drive: Upload příloh“.",
     "REPLACE_* — credentials a složky jako dřív",
-    "Přílohy (PDF, …): paralelní větev „Code: Přílohy → položky“ → „Drive: Upload příloh“ nahrává každou binárku do REPLACE_WITH_FOLDER_ID_OF_INBOX_EMAIL_ATTACHMENTS (vytvoř podsložku nebo použij stejné ID jako u .md).",
+    "INBOX root: 1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur. Email .md → REPLACE_WITH_INBOX_EMAIL_FOLDER_ID; přílohy → REPLACE_WITH_INBOX_EMAIL_ATTACHMENTS_FOLDER_ID (nebo stejné ID).",
     "Google Formulář: odpovědi bereme ze sdíleného Google Sheet (propojeného s formulářem), ne přes Form export v n8n.",
     "Markdown fenced bloky u vloženého textu z Drive: funkce wrapMarkdownCodeFence (delší fence nebo ZWSP) brání předčasnému ukončení bloku obsahem dokumentu.",
     "Drive fetch dokumentu z odkazů: Code node sandbox v n8n NEMÁ httpRequestWithAuthentication; export dělá uzel „Drive: Download dokumentu“ (Google File Conversion: Docs→HTML, Sheets→CSV, Slides→TXT). „Code: Append docs section“ pak HTML/text načte z binary.docExport a přilepí do .md."

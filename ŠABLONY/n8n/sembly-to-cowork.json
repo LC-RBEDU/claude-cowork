@@ -45,7 +45,7 @@
         "folderId": {
           "__rl": true,
           "mode": "id",
-          "value": "1_voRv_6jaEDPtOweA-6Qfd-td62R4oEK"
+          "value": "REPLACE_WITH_INBOX_SEMBLY_FOLDER_ID"
         },
         "options": {}
       },
@@ -102,7 +102,7 @@
     "Sembly Custom Automation → Destination: Production Webhook URL z tohoto workflow (po aktivaci). Path: sembly-cowork-transcript → URL typicky .../webhook/sembly-cowork-transcript",
     "HTTP: POST. Pokud Sembly vyžaduje GET, změň ve Webhook uzlu.",
     "Po prvním volání: Execution → uprav aliasy v Code (funkce pick) podle skutečných klíčů v JSON.",
-    "REPLACE_WITH_GDRIVE_CREDENTIAL_ID — Google Drive OAuth; složka 1_voRv_6jaEDPtOweA-6Qfd-td62R4oEK; driveId My Drive nebo shared drive.",
+    "INBOX root: 1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur — sembly subfolder → REPLACE_WITH_INBOX_SEMBLY_FOLDER_ID; driveId = My Drive v UI.",
     "Cron + Sembly REST API verze je nahrazena webhookem — žádný Bearer token do Sembly API v tomto workflow.",
     "Import: přiřaď Drive credential, případně změň webhook path (pak i URL v Sembly)."
   ]

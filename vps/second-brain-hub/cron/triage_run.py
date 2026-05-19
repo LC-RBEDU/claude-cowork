@@ -12,6 +12,9 @@ from zoneinfo import ZoneInfo
 VAULT = Path(os.environ.get("VAULT_PATH", Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC"))
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 
+# Standard MrLUC INBOX layout (Drive mirror → VPS /data/mrluc/01-INBOX/)
+INBOX_SUBDIRS = ("slack", "sembly", "email", "uploads", "manual")
+
 SLUG_HINTS = [
     ("rb-universe", "rb-universe-development"),
     ("universe", "rb-universe-development"),
@@ -54,19 +57,29 @@ def title_from_file(p: Path, body: str) -> str:
     return p.stem.replace("-", " ")[:120]
 
 
-def main() -> None:
-    inbox = VAULT / "01-INBOX"
-    pending_dir = VAULT / "00-System/Triage-Pending"
-    pending_dir.mkdir(parents=True, exist_ok=True)
-
-    files = []
-    if inbox.exists():
-        for p in inbox.rglob("*.md"):
+def iter_inbox_files(inbox: Path) -> list[Path]:
+    files: list[Path] = []
+    if not inbox.exists():
+        return files
+    for sub in INBOX_SUBDIRS:
+        subdir = inbox / sub
+        if not subdir.is_dir():
+            continue
+        for p in subdir.rglob("*.md"):
             if p.name.startswith("README"):
                 continue
             if "ZPRACOVÁNO" in p.read_text(encoding="utf-8", errors="ignore")[:400]:
                 continue
             files.append(p)
+    return files
+
+
+def main() -> None:
+    inbox = VAULT / "01-INBOX"
+    pending_dir = VAULT / "00-System/Triage-Pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+
+    files = iter_inbox_files(inbox)
 
     if not files:
         print("no inbox files to triage")

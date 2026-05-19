@@ -13,12 +13,22 @@ _DEFAULT_OUT = Path(__file__).resolve().parents[1] / "web/dashboard-data.json"
 OUT_JSON = Path(os.environ.get("DASHBOARD_JSON", _DEFAULT_OUT))
 LEGACY_TASKS = Path(os.environ.get("LEGACY_TASKS", ""))
 
+INBOX_SUBDIRS = ("slack", "sembly", "email", "uploads", "manual")
+
 
 def count_inbox() -> int:
     inbox = VAULT / "01-INBOX"
     if not inbox.exists():
         return 0
-    return len(list(inbox.rglob("*.md"))) - len(list(inbox.rglob("README*.md")))
+    n = 0
+    for sub in INBOX_SUBDIRS:
+        subdir = inbox / sub
+        if not subdir.is_dir():
+            continue
+        for p in subdir.rglob("*.md"):
+            if not p.name.startswith("README"):
+                n += 1
+    return n
 
 
 def count_pending() -> int:
