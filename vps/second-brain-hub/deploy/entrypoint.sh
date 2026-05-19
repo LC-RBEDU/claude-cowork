@@ -4,8 +4,7 @@ set -eu
 mkdir -p /data/mrluc/01-INBOX/slack \
   /data/mrluc/01-INBOX/sembly \
   /data/mrluc/01-INBOX/email \
-  /data/mrluc/01-INBOX/uploads \
-  /data/mrluc/01-INBOX/manual \
+  /data/mrluc/01-INBOX/daily \
   /data/mrluc/00-System/Triage-Pending \
   /data/mrluc/00-System/Triage-Applied \
   /data/mrluc/02-Projekty \
@@ -16,4 +15,4 @@ if [ -f "${LEGACY_TASKS}" ] || [ -d "${VAULT_PATH}/02-Projekty" ]; then
 fi
 
 echo "second-brain-hub: supercronic only (no public HTTP)"
-exec supercronic -passthrough-logs /etc/cron.d/second-brain
+exec supercronic -passthrough-logs /app/crontab

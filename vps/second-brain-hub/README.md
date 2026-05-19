@@ -15,7 +15,7 @@ flowchart LR
 
 | Kde | Co běží |
 |-----|---------|
-| **Google Drive** | `01-INBOX/{slack,sembly,email,uploads,manual}/` — SSOT pro n8n capture |
+| **Google Drive** | `01-INBOX/{slack,sembly,email,daily}/` — SSOT pro n8n capture |
 | **coolify-dev** | Docker: `triage_run.py`, `build_dashboard.py`, `edu_news_refresh.py` |
 | **Mac** | Dashboard HTML + `dashboard-data.json` (žádná veřejná URL) |
 
@@ -61,7 +61,7 @@ MrLUC **není** v gitu. Layout na hostu = stejný jako Obsidian vault:
 
 ```
 /data/mrluc/
-├── 01-INBOX/slack|sembly|email|uploads|manual/
+├── 01-INBOX/slack|sembly|email|daily/
 ├── 02-Projekty/
 ├── 00-System/Triage-Pending/
 └── …
@@ -101,7 +101,7 @@ Alternativa na serveru: **rclone** `drive:MrLUC/01-INBOX` → `/data/mrluc-secon
 | `build_dashboard.py` | +5 min | 7:05 |
 | `edu_news_refresh.py` | 7:10 | 7:10 |
 
-`triage_run.py` skenuje pouze `01-INBOX/{slack,sembly,email,uploads,manual}/`.
+`triage_run.py` skenuje pouze `01-INBOX/{slack,sembly,email,daily}/`.
 
 Logy: `docker logs <container>` nebo `docker exec … tail /var/log/second-brain/*.log`
 

@@ -13,7 +13,7 @@ _DEFAULT_OUT = Path(__file__).resolve().parents[1] / "web/dashboard-data.json"
 OUT_JSON = Path(os.environ.get("DASHBOARD_JSON", _DEFAULT_OUT))
 LEGACY_TASKS = Path(os.environ.get("LEGACY_TASKS", ""))
 
-INBOX_SUBDIRS = ("slack", "sembly", "email", "uploads", "manual")
+INBOX_SUBDIRS = ("slack", "sembly", "email", "daily")
 
 
 def count_inbox() -> int:

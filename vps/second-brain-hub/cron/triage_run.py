@@ -13,7 +13,7 @@ VAULT = Path(os.environ.get("VAULT_PATH", Path.home() / "Library/Mobile Document
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 
 # Standard MrLUC INBOX layout (Drive mirror → VPS /data/mrluc/01-INBOX/)
-INBOX_SUBDIRS = ("slack", "sembly", "email", "uploads", "manual")
+INBOX_SUBDIRS = ("slack", "sembly", "email", "daily")
 
 SLUG_HINTS = [
     ("rb-universe", "rb-universe-development"),
@@ -44,6 +44,8 @@ def guess_proj(text: str, path: Path) -> str:
         return "strategy"
     if "email" in path.parts:
         return "financni-tym"
+    if "daily" in path.parts:
+        return "firemni-procesy"
     return "firemni-procesy"
 
 
