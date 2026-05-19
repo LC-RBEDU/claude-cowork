@@ -1,0 +1,10 @@
+README.md
+config.example.env
+scripts/
+deploy/com.rbedu.mrluc-export.plist
+deploy/crontab.example
+deploy/setup-coolify.sh
+.git
+.gitignore
+**/__pycache__
+*.pyc

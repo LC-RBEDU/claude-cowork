@@ -1,0 +1,19 @@
+# Second Brain — Europe/Prague (supercronic)
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+VAULT_PATH=/data/mrluc
+DASHBOARD_JSON=/var/www/html/dashboard-data.json
+LEGACY_TASKS=/data/mrluc/00-System/dashboard-tasks-source.json
+TZ=Europe/Prague
+
+# Po–Pá: triage 7:00, 14:00, 20:00
+0 7,14,20 * * 1-5 root cd /app && python3 cron/triage_run.py >> /var/log/second-brain/triage.log 2>&1
+# Po–Pá: rebuild +5 min
+5 7,14,20 * * 1-5 root cd /app && python3 cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
+# Po–Pá: edu news 7:10
+10 7 * * 1-5 root cd /app && python3 cron/edu_news_refresh.py >> /var/log/second-brain/edu.log 2>&1
+
+# So–Ne: jen ranní běh
+0 7 * * 0,6 root cd /app && python3 cron/triage_run.py >> /var/log/second-brain/triage.log 2>&1
+5 7 * * 0,6 root cd /app && python3 cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
+10 7 * * 0,6 root cd /app && python3 cron/edu_news_refresh.py >> /var/log/second-brain/edu.log 2>&1

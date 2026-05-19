@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1a1d23" />
+  <title>Second Brain Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>Second Brain</h1>
+    <p class="meta" id="meta-updated">—</p>
+    <div class="badges">
+      <span class="badge" id="badge-inbox">INBOX: —</span>
+      <span class="badge badge-warn" id="badge-pending">Ke schválení: —</span>
+    </div>
+  </header>
+
+  <section class="panel" id="top-priority">
+    <h2>Top priority dnes</h2>
+    <div id="top-priority-list" class="cards"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Kalendář</h2>
+    <p class="hint">Google Calendar API — nastav <code>GOOGLE_CALENDAR_JSON</code> na VPS (read-only).</p>
+    <div id="calendar-placeholder" class="calendar-placeholder">Dnes / týden — připojení v config</div>
+  </section>
+
+  <section class="panel">
+    <h2>Úkoly</h2>
+    <div class="columns" id="task-columns"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Podle projektu</h2>
+    <div id="by-project"></div>
+  </section>
+
+  <section class="panel">
+    <h2>EDU news (OPS2)</h2>
+    <div id="edu-news"></div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
