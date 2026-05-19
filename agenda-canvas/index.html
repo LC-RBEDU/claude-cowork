@@ -306,6 +306,9 @@ async function loadData() {
     }
     const data = JSON.parse(jsonStr);
     TASKS = data.tasks;
+    // Patch F17 → ASAP (2026-05-19)
+    const _f17=TASKS.find(t=>t.id==='F17');
+    if(_f17){_f17.p='ASAP';_f17.name='Podat žádost o kontokorent u FIO Banky';_f17.ch=[{t:'Podat online žádost o kontokorent na FIO (web / internet banking)',d:false},{t:'Sledovat odpověď banky',d:false},{t:'Po obdržení domluvit termín konzultace',d:false},{t:'Připravit otázky: výše kontokorentu, podmínky zajištění, časový rámec',d:false}];}
     PROJECTS = data.projects;
     PROJ_ORDER = data.proj_order;
     META = { version: data.version, updated: data.updated };
