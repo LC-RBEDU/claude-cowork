@@ -9,11 +9,25 @@
 </head>
 <body>
   <header class="header">
-    <h1>Second Brain</h1>
-    <p class="meta" id="meta-updated">—</p>
-    <div class="badges">
-      <span class="badge" id="badge-inbox">INBOX: —</span>
-      <span class="badge badge-warn" id="badge-pending">Ke schválení: —</span>
+    <div class="header-main">
+      <h1>Second Brain</h1>
+      <p class="meta" id="meta-updated">—</p>
+      <div class="badges">
+        <span class="badge" id="badge-inbox">INBOX: —</span>
+        <span class="badge badge-warn" id="badge-pending">Ke schválení: —</span>
+      </div>
+    </div>
+    <div class="header-search">
+      <input
+        type="search"
+        id="dashboard-search"
+        class="dashboard-search-input"
+        placeholder="Hledat úkol, projekt…"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Hledat v dashboardu"
+      />
+      <span class="search-status" id="search-status" aria-live="polite"></span>
     </div>
   </header>
 
@@ -39,7 +53,19 @@
   <section class="panel">
     <h2>Podle projektu</h2>
     <p class="hint">Klikni na projekt — zobrazí všechny úkoly. Úkol s badge checklist rozbalí subtasky.</p>
+    <div class="proj-sort-bar" id="proj-sort-bar" role="group" aria-label="Řazení projektů">
+      <span class="proj-sort-label">Řadit:</span>
+      <button type="button" class="proj-sort-btn active" data-sort="name">Název</button>
+      <button type="button" class="proj-sort-btn" data-sort="tasks">Počet úkolů</button>
+      <button type="button" class="proj-sort-btn" data-sort="ice">Součet ICE</button>
+    </div>
     <div id="by-project"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Týdenní rytmus</h2>
+    <p class="hint">Neděle 20:00 — cron vytvoří drafty; schválení v Cursoru (<code>agenda-weekly-review</code>, <code>agenda-retro</code>).</p>
+    <div id="weekly-review"></div>
   </section>
 
   <section class="panel">

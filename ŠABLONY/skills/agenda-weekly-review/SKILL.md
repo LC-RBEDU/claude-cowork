@@ -1,0 +1,53 @@
+---
+name: agenda-weekly-review
+description: "Use when user asks for týdenní shrnutí, weekly review, schvál weekly draft, or after Sunday cron created 00-System/weekly/*-draft.md. Reads draft, enriches narrative, writes final YYYY-Www.md. Optionally updates ## Progress in 02-PROJEKTY hubs. ALWAYS preview before write."
+---
+
+# agenda-weekly-review
+
+> Nedělní rytmus: cron vytvoří faktický draft → ty schválíš a doplníš smysl v chatu.
+
+## Kdy spouštět
+
+- "Týdenní shrnutí" / "weekly review" / "schval weekly draft"
+- Po cronu: soubor `OBSIDIAN/00-System/weekly/YYYY-Www-draft.md` existuje
+- Neděle večer — hned po otevření draftu (před nebo po `agenda-retro`)
+
+## Cesty (vault)
+
+- Vault: `/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN`
+- Draft: `00-System/weekly/YYYY-Www-draft.md`
+- Finální: `00-System/weekly/YYYY-Www.md`
+- Procesy: `00-System/Memory/procesy-mrluc.md`
+
+## Workflow
+
+### 1. Načti draft
+
+- Najdi nejnovější `*-draft.md` v `00-System/weekly/` (nebo konkrétní týden z dotazu)
+- Přečti `dashboard-data.json` nebo `dashboard-tasks-source.json` pro kontext priorit
+
+### 2. Obohať (LLM)
+
+Doplň ke skeletonu:
+
+- **Co se povedlo** — 3–7 bulletů s dopadem (ne jen seznam task ID)
+- **Kam se posunulo** — per projekt max 1 věta u aktivních témat
+- **Blokéry / Waiting** — co čeká a do kdy
+- **Priorita příští týden** — max 5 konkrétních bodů (odkaz na task ID)
+
+### 3. Preview
+
+Ukaž finální markdown celý. Zeptej se: schválit / upravit sekci X.
+
+### 4. Zápis (po „schval“)
+
+- Ulož `YYYY-Www.md` (bez `-draft` suffix)
+- Volitelně: do `## Progress` u 2–3 hubů přidej 1 odrážku s datem (nesmaž staré bez potvrzení)
+- Draft ponech nebo přejmenuj na `_archived` — dle preference uživatele
+
+## Pravidla
+
+- Markdown hubů je SSOT pro úkoly — weekly soubor je SSOT pro týdenní narrative
+- Nikdy neměň ICE/priority v úkolech v tomto skillu (k tomu `agenda-priority-review`)
+- Česky, stručně, akční tón

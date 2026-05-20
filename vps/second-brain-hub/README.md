@@ -94,11 +94,11 @@ Pokud máš na Macu zrcadlo Drive (např. `~/Library/CloudStorage/GoogleDrive-�
 
 ```bash
 rsync -avz --delete \
-  "$GDRIVE_MIRROR/MrLUC/01-INBOX/" \
+  "$GDRIVE_MIRROR/OBSIDIAN/01-INBOX/" \
   coolify-dev:/data/mrluc-second-brain/01-INBOX/
 ```
 
-Alternativa na serveru: **rclone** `drive:MrLUC/01-INBOX` → `/data/mrluc-second-brain/01-INBOX/` (cron na hostu, mimo tento image).
+Alternativa na serveru: **rclone** `drive:OBSIDIAN/01-INBOX` → `/data/mrluc-second-brain/01-INBOX/` (cron na hostu, mimo tento image).
 
 ## Cron (Europe/Prague)
 
@@ -107,6 +107,11 @@ Alternativa na serveru: **rclone** `drive:MrLUC/01-INBOX` → `/data/mrluc-secon
 | `triage_run.py` | 7:00, 14:00, 20:00 | 7:00 |
 | `build_dashboard.py` | +5 min | 7:05 |
 | `edu_news_refresh.py` | 7:10 | 7:10 |
+| `weekly_summary_draft.py` | — | **Ne 20:00** |
+| `retro_draft.py` | — | **Ne 20:10** |
+| `build_dashboard.py` (po weekly) | — | **Ne 20:15** |
+
+Nedělní večer: drafty v `00-System/weekly/YYYY-Www-draft.md` a `00-System/Memory/retro-YYYY-Www-draft.md` → schválení skills `agenda-weekly-review`, `agenda-retro`. Revize priorit: ad-hoc `agenda-priority-review`.
 
 `edu_news_refresh.py` (OPS2): z `02-PROJEKTY/*.md` (HOTOVO za posledních N dní + rozpracované úkoly s vysokým ICE) vybere max 5 témat pro EDU news → `00-System/edu-news-topics.json`, `dashboard-tasks-source.json` (`eduNews`), checklist v `operations.md`, pak `build_dashboard.py`.
 

@@ -1,80 +1,59 @@
 ---
 name: agenda-triage
-description: "Use this skill when the user wants to process accumulated items in CLAUDE COWORK/INBOX/, re-prioritize existing AGENDA topics, or asks 'projeď inbox', 'udělejme triage', 'co tam mám nasbíráno', 'co je nového', 'urovnej to'. Two modes: BATCH (rychle všechno najednou s krátkým souhrnem) and DEEP (jeden po druhém s diskusí). Updates AGENDA/<topic>.md with proper metadata, refreshes 00-System/Index.md, and moves processed items to HOTOVO/processed/. ALWAYS show preview before persisting."
+description: "INBOX triage in MrLUC vault, pending batch approval from cron, or re-priority. Triggers: projeď inbox, schval pending triáž, apply batch, udělejme triage. Modes: BATCH, DEEP, PENDING (read 00-System/Triage-Pending/*.json). Updates 02-PROJEKTY/<slug>.md, 00-System/Index.md, archives to 07-ARCHIV/inbox-processed/. ALWAYS preview before write."
 ---
 
 # agenda-triage
 
-> Pravidelný (ad-hoc) průchod nasbíraného. Capture skill ukládá rychle, triage pročistí.
+> Pravidelný průchod nasbíraného. Capture ukládá rychle, triage pročistí.
+
+**Vault:** `OBSIDIAN/` — `/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN`
 
 ## Kdy spouštět
 
-- "Projeď inbox" / "udělejme triage" / "co tam mám nasbíráno"
-- Uživatel se vrátil po pauze a chce vědět, co je nového
-- Když je v `INBOX/*` >5 položek nezpracováno
+- „Projeď inbox“ / „udělejme triage“ / „co tam mám nasbíráno“
+- V `01-INBOX/*` je >5 nezpracovaných položek
+- „Schval pending triáž“ / „apply batch“ → mód **PENDING**
 
-## Volby módu
-
-Zeptej se na začátku:
+## Módy
 
 ```
-Mám 7 položek v INBOXu (3× sembly, 2× slack, 2× cowork-uploads).
-Mód:
-  [B]atch — rychlý souhrn, navrhnu vše najednou, ty potvrdíš (5 min)
-  [D]eep — jeden po druhém, projdeme metadata podrobně (15–20 min)
+Mám N položek v INBOXu.
+  [B]atch — rychlý souhrn, potvrzení najednou
+  [D]eep — položka po položce
+  [P]ending — schválení 00-System/Triage-Pending/*.json (cron návrh)
+  [R]e-priority — delegace na agenda-priority-review
 
-Default: B.
+Default: B (nebo P pokud uživatel žádá pending).
 ```
 
-## Batch mód
+## Batch
 
-1. Načti všechny položky z `INBOX/*/`
-2. Pro každou: extrahuj obsah, navrhni téma + kvadrant + ICE
-3. Postav konsolidovaný preview podle vzoru z `agenda-capture` (viz krok 6 tam)
-4. Po potvrzení proveď zápis a archivaci (stejně jako capture skill)
-5. Update `00-System/Index.md`
+1. Načti `01-INBOX/*/`
+2. Extrahuj, navrhni téma + ICE + kvadrant
+3. Preview jako v `agenda-capture`
+4. Po OK: zápis do `02-PROJEKTY/`, archiv, Index
 
-## Deep mód
+## Deep
 
-Pro každou položku:
+Pro každou položku: shrnutí, návrh tématu/metadata, OK/uprav/přeskoč/drop.
 
-```
-[1/7] INBOX/sembly/2026-04-28-strategy-mtg.md
+## PENDING (cron)
 
-Shrnutí: 47min meeting o Q3 plánu. 4 akční body identifikované.
+1. Načti nejnovější `00-System/Triage-Pending/*-batch.json` + summary
+2. Ukaž změny (waiting_expired, nové úkoly, …)
+3. **Nikdy neaplikuj bez explicitního „ano“ / „apply“**
+4. Po schválení: aplikuj na hub `.md`, přesuň batch do `Triage-Applied/`, rebuild dashboard pokud požádáno
 
-Akční bod 1 z 4:
-  "Přepracovat sales pipeline reporting pro CEO"
+## Refresh Index
 
-Návrh: AGENDA/ceo-reporting.md (existuje)
-  Q1 (urgent: zítra 1:1)
-  ICE: I=9 (CEO klíčový stakeholder), C=6 (nevíme rozsah), E=3 (jen úprava existujícího)
-  Score: 18
-  Vrátit se: zítra
-  Blokováno: nic
+Po triage: pro každý `02-PROJEKTY/<slug>.md` aktivní úkoly, top Score, last update → tabulka v `00-System/Index.md`.
 
-OK / uprav (téma|kvadrant|ICE) / přeskoč / drop
-```
+## Re-prioritizace
 
-Po projetí všech bodů z položky se posune na další.
+„Eisenhower přepočítej“ → skill `agenda-priority-review` nebo projdi aktivní úkoly (po termínu, Q1 dnes, Q2 top 3).
 
-## Refresh _index.md
+## Kontext před startem
 
-Po každém triage:
-1. Pro každý `AGENDA/<slug>.md`:
-   - počet aktivních úkolů (řádky `- [ ]`)
-   - top priorita = nejvyšší Score mezi aktivními
-   - last update = datum dnes (pokud byly změny)
-2. Sestav tabulku v `00-System/Index.md` (sortováno podle počtu aktivních úkolů sestupně)
-3. Pokud nějaké téma má 0 aktivních úkolů a 0 v backlogu → navrhni archivaci celého tématu
-
-## Re-prioritizace existujících úkolů
-
-Pokud uživatel řekne "udělej re-priority" nebo "Eisenhower přepočítej":
-1. Projdi všechna aktivní témata
-2. Pro každý úkol s `vrátit se < dnes` → flagni jako "po termínu"
-3. Pro úkoly v Q2 → zkontroluj jestli ICE skóre stále dává smysl podle aktuálních info v sekci Materiály
-4. Vrať konsolidovaný report:
-   - Po termínu: X
-   - Q1 dnes: Y
-   - Q2 top 3 dle Score: Z
+- `00-System/Memory/about-me.md`
+- `00-System/Index.md`

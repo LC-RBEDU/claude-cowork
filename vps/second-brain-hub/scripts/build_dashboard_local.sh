@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Mac: build dashboard-data.json from iCloud MrLUC vault and serve web/ locally.
+# Mac: build dashboard-data.json from Drive SECOND_BRAIN vault and serve web/ locally.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-VAULT_PATH="${VAULT_PATH:-$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC}"
+VAULT_PATH="${VAULT_PATH:-/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN}"
 WEB="$REPO/web"
 PORT="${PORT:-8765}"
 

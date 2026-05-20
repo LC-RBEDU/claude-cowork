@@ -1,11 +1,11 @@
 ---
 name: agenda-work
-description: "Use this skill when the user wants to work on a specific AGENDA topic — creating or updating documents, mindmaps, calculations, scripts, MCPs, or other outputs. Triggers: 'jdeme na <slug>', 'pracujeme na <slug>', 'otevři <slug>', 'pokračujeme v <slug>', 'udělej mi dokument pro <slug>', 'aktualizuj výstupy <slug>'. Also trigger when user wants to update the task list inside a topic ('uprav úkoly', 'přidej task', 'uzavři task', 'co zbývá v <slug>'). Reads the AGENDA topic file + scans VÝSTUPY/<slug>/ for existing outputs, then presents a clear starting point. NEVER modifies AGENDA files or outputs without user confirmation of what to do."
+description: "Use when user works on a MrLUC project — 'jdeme na <slug>', 'otevři <slug>', documents/outputs, task updates. Reads 02-PROJEKTY/<slug>.md (Kontext, Progress, Materiály, úkoly) + scans 02-PROJEKTY/<slug>/ outputs. NEVER modifies files without confirmation."
 ---
 
 # agenda-work
 
-> Otevři téma, zorientuj se, udělej výstup. Spojuje AGENDA (úkoly, kontext) s VÝSTUPY (dokumenty, mindmapy, kalkulace, skripty...).
+> Otevři téma, zorientuj se, udělej výstup. Hub `02-PROJEKTY/<slug>.md` + složka výstupů `02-PROJEKTY/<slug>/`.
 
 ## Kdy spouštět
 
@@ -23,9 +23,10 @@ description: "Use this skill when the user wants to work on a specific AGENDA to
 
 Před tím než cokoli uděláš:
 
-1. Přečti `CLAUDE COWORK/O MNĚ/about-me.md` (pokud ještě v session ne)
-2. Přečti `MrLUC/02-PROJEKTY/<slug>.md` (kontext, aktivní úkoly, backlog, materiály)
-3. Projdi `MrLUC/02-PROJEKTY/<slug>/` — seznam existujících souborů s typem a odhadovaným stářím (datum z názvu nebo mtime)
+1. Přečti `OBSIDIAN/00-System/Memory/about-me.md` (pokud ještě v session ne)
+2. Přečti `OBSIDIAN/02-PROJEKTY/<slug>.md` — **## Kontext**, **## Progress**, **## Materiály**, **## Otevřené otázky**, aktivní úkoly, backlog
+3. Projdi `OBSIDIAN/02-PROJEKTY/<slug>/` — seznam souborů (datum z názvu nebo mtime); volitelně `_index.md`
+4. Volitelně `00-System/dashboard-data.json` → `projects[slug]` briefing (contextSnippet, materials)
 
 Pokud slug není jasný z uživatelovy zprávy → zobraz seznam aktivních témat z `00-System/Index.md` a ptej se.
 
@@ -37,6 +38,8 @@ Vždy na začátku session zobraz:
 ═══════════════════════════════════════════════
 TÉMA: <Název tématu> [<slug>]
 ═══════════════════════════════════════════════
+
+📎 KONTEXT / PROGRESS / MATERIÁLY (zkráceně z hubu)
 
 📋 AKTIVNÍ ÚKOLY (<N>)
   • [Q1, S=18] Název úkolu — vrátit se: dnes
@@ -69,13 +72,12 @@ Typy výstupů a kde je uložit:
 
 | Typ | Formát | Kde ukládat |
 |-----|--------|-------------|
-| Dokument (zpráva, analýza, memo) | `.docx` (použij docx skill) | `VÝSTUPY/<slug>/` |
-| Mindmapa / diagram | interaktivní HTML widget v chatu NEBO `.mermaid` soubor | `VÝSTUPY/<slug>/` |
-| Kalkulace / tabulka | `.xlsx` (použij xlsx skill) | `VÝSTUPY/<slug>/` |
-| Strukturovaná poznámka / framework | `.md` | `VÝSTUPY/<slug>/` |
-| Skript (Python, JS, GAS...) | `.py` / `.js` / `.gs` | `VÝSTUPY/<slug>/` |
-| MCP / n8n workflow | `.json` nebo složka | `VÝSTUPY/<slug>/` |
-| PDF | `.pdf` (použij pdf skill) | `VÝSTUPY/<slug>/` |
+| Dokument (zpráva, analýza, memo) | `.docx` | `02-PROJEKTY/<slug>/` |
+| Mindmapa / diagram | `.mermaid` / HTML | `02-PROJEKTY/<slug>/` |
+| Kalkulace / tabulka | `.xlsx` | `02-PROJEKTY/<slug>/` |
+| Strukturovaná poznámka | `.md` | `02-PROJEKTY/<slug>/` |
+| Skript | `.py` / `.js` | `02-PROJEKTY/<slug>/` |
+| MCP / n8n | `.json` | `02-PROJEKTY/<slug>/` |
 
 Při **aktualizaci existujícího souboru**:
 - Přečti soubor, identifikuj, co je zastaralé nebo neúplné
@@ -92,7 +94,7 @@ Při **tvorbě nového výstupu**:
 Ukáž aktuální úkoly a navrhni změny:
 
 ```
-Návrh změn v AGENDA/<slug>.md:
+Návrh změn v 02-PROJEKTY/<slug>.md:
 
 ✅ Uzavřít (přesunout do "Recently moved to HOTOVO"):
   • [Q2, S=14] Přidat retry do FIO syncu
@@ -111,13 +113,13 @@ Proveď zápis až po potvrzení.
 
 ### 4. Ulož výstupy
 
-- Výstup ulož do `VÝSTUPY/<slug>/`
+- Výstup ulož do `02-PROJEKTY/<slug>/`
 - Pojmenuj soubor výstižně: `<popis>-<YYYY-MM-DD>.<ext>` nebo bez data pokud jde o living document, který se bude přepisovat
-- V sekci "Materiály a poznámky" v `AGENDA/<slug>.md` přidej odkaz: `viz VÝSTUPY/<slug>/<soubor>`
+- V sekci "Materiály a poznámky" v `OBSIDIAN/02-PROJEKTY/<slug>.md` přidej odkaz: `viz 02-PROJEKTY/<slug>/<soubor>`
 
 ### 5. Aktualizuj AGENDA soubor
 
-Po dokončení práce navrhni update `AGENDA/<slug>.md`:
+Po dokončení práce navrhni update `OBSIDIAN/02-PROJEKTY/<slug>.md`:
 - Uzavřené úkoly → přesuň do "Recently moved to HOTOVO" (s datem)
 - Nové úkoly → přidej s metadaty
 - Odkaz na nový/aktualizovaný výstup → do sekce Materiály
@@ -141,8 +143,8 @@ VÝSTUPY/rb-universe-development/ — celkem 3 soubory.
 
 Pokud uživatel přijde s větou typu "po triage chci aktualizovat výstupy ke <slug>":
 
-1. Přečti `AGENDA/<slug>.md` — zejména sekci "Recently moved to HOTOVO" a nové úkoly
-2. Projdi existující výstupy v `VÝSTUPY/<slug>/`
+1. Přečti `OBSIDIAN/02-PROJEKTY/<slug>.md` — zejména sekci "Recently moved to HOTOVO" a nové úkoly
+2. Projdi existující výstupy v `02-PROJEKTY/<slug>/`
 3. Navrhni, které výstupy jsou zastaralé nebo neúplné vzhledem k nové informaci
 4. Postupuj jako v kroku 3A
 
@@ -152,8 +154,8 @@ Pokud uživatel přijde s větou typu "po triage chci aktualizovat výstupy ke <
 
 - **Nikdy nepřepisuj soubory bez náhledu** — vždy ukáž co chceš změnit
 - **Nikdy neupravuj AGENDA soubor bez potvrzení**
-- **Výstupy jdou vždy do `VÝSTUPY/<slug>/`** — nikdy jinam
+- **Výstupy jdou vždy do `02-PROJEKTY/<slug>/`** — nikdy jinam
 - **Při nejasném zadání** — polož 1 konkrétní otázku, nezačínej hádat
 - **Mindmapy prioritně jako HTML widget v chatu** — soubor jen pokud uživatel chce archivovat
 - **U skriptů a MCP** — vždy přidej stručný komentář do souboru, co to dělá a kdy vzniklo
-- **Tone:** viz `O MNĚ/anti-ai-writing-tools.md` — informálně, konkrétně, bez AI frází
+- **Tone:** viz `OBSIDIAN/00-System/Memory/anti-ai-writing-tools.md` — informálně, konkrétně, bez AI frází

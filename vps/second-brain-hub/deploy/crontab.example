@@ -12,3 +12,8 @@ REPO=/opt/second-brain-hub
 0 7 * * 0,6 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/triage_run.py >> /var/log/sb-triage.log 2>&1
 5 7 * * 0,6 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/build_dashboard.py >> /var/log/sb-build.log 2>&1
 10 7 * * 0,6 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/edu_news_refresh.py >> /var/log/sb-edu.log 2>&1
+
+# Ne vecer: weekly + retro draft
+0 20 * * 0 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/weekly_summary_draft.py >> /var/log/sb-weekly.log 2>&1
+10 20 * * 0 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/retro_draft.py >> /var/log/sb-retro.log 2>&1
+15 20 * * 0 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/build_dashboard.py >> /var/log/sb-build.log 2>&1

@@ -2,16 +2,22 @@
 
 4 workflows. Každý je samostatný JSON, importovatelný do n8n.
 
-## Google Drive — MrLUC INBOX
+## Google Drive — vault INBOX (SECOND_BRAIN)
 
-| | |
-|--|--|
-| **INBOX root** | [01-INBOX](https://drive.google.com/drive/u/0/folders/1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur) |
-| **Folder ID (root)** | `1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur` |
-| **Podsložky** | `slack/`, `sembly/`, `email/`, `uploads/`, `manual/` — každá má **vlastní** folder ID v URL |
+**Cesta na Drive (PRV):** `SECOND_BRAIN/OBSIDIAN/01-INBOX/`
 
-Po přesunu INBOXu na Drive zkopíruj ID z URL každé podsložky do příslušného workflow (node „Save to Drive“ → `folderId`).  
-Šablony používají placeholdery `REPLACE_WITH_INBOX_*_FOLDER_ID` — v produkční n8n instanci už máš nastaveno v UI.
+| Podsložka | Účel |
+|-----------|------|
+| `slack/` | Slack capture workflow |
+| `sembly/` | Sembly webhook |
+| `email/` | Gmail forward |
+| `daily/` | Ruční / mobilní capture |
+
+U každého workflow v n8n: node **Save to Drive** → `folderId` = ID **konkrétní** podsložky (z URL ve webu Drive po otevření složky).
+
+Staré cíle (`SECOND_BRAIN_INBOX/INBOX/SLACK`, kořenové `INBOX/` na jiném účtu) **nepoužívat**.
+
+Šablony JSON mají placeholdery `REPLACE_WITH_INBOX_*_FOLDER_ID`.
 
 ## Workflows
 
@@ -25,14 +31,14 @@ Po přesunu INBOXu na Drive zkopíruj ID z URL každé podsložky do příslušn
 ## Společné předpoklady
 
 - n8n self-hosted
-- **Google Drive credential** — cíl = `MrLUC/01-INBOX/<podsložka>/` na Drive (sync s iCloud vaultem; SSOT Obsidian MrLUC)
+- **Google Drive credential** — cíl = `SECOND_BRAIN/OBSIDIAN/01-INBOX/<podsložka>/`
 - Slack: jen inbound capture
 
 ## Postup importu
 
 1. n8n → Workflows → Import from File
 2. Nastav credentials na triggerech a Drive nodech
-3. U každého „Save to Drive“ ověř `folderId` = konkrétní podsložka pod root `1ZaWrGl9DktNsu4K8KQZzqo2JWPtb7-ur`
+3. U každého „Save to Drive“ ověř `folderId` = konkrétní podsložka pod `SECOND_BRAIN/01-INBOX/`
 4. Activate workflow
 
 ## VPS triage

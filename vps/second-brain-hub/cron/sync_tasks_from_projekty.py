@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge task fields from 02-Projekty/*.md into dashboard-tasks-source.json (preserve ICE/ch)."""
+"""Merge task fields from 02-PROJEKTY/*.md into dashboard-tasks-source.json (preserve ICE/ch)."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 import os
 
-VAULT = Path(os.environ.get("VAULT_PATH", Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC"))
+VAULT = Path(os.environ.get("VAULT_PATH", Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN")))
 TASKS_JSON = Path(
     os.environ.get("LEGACY_TASKS", VAULT / "00-System/dashboard-tasks-source.json")
 )
@@ -31,6 +31,7 @@ ACC_MAP = {
     "sales-a-business-development": "r",
     "owners": "r",
     "osobni": "gr",
+    "allfred": "te",
 }
 
 PRIORITY_RE = re.compile(r"\b(ASAP|Q1|Q2|Next|Backlog)\b", re.I)
@@ -52,6 +53,10 @@ HOTOVO_ITEM_RE = re.compile(
     r"^-\s+\*\*([A-Z]+\d+[a-z]?)\*\*\s*[—–-]\s*(.+)$",
     re.MULTILINE,
 )
+HOTOVO_HEAD_RE = re.compile(
+    r"^###\s+([A-Z]+\d+[a-z]?)\s*[—–-]\s*(.+?)\s*✅\s*$",
+    re.MULTILINE,
+)
 INLINE_TASK_RE = re.compile(
     r"^-\s+\[([ x])\]\s+\*\*([A-Z]+\d+[a-z]?)(?:\s+\[([^\]]+)\])?\*\*\s*(.+)$",
     re.MULTILINE,
@@ -62,6 +67,8 @@ SOURCE_RE = re.compile(r"^_Zdroj:\s*(.+)$", re.MULTILINE)
 MD_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 SLUG_RE = re.compile(r"^\*\*Slug\*\*:\s*`([^`]+)`", re.MULTILINE)
 TITLE_RE = re.compile(r"^#\s+Téma:\s*(.+)$", re.MULTILINE)
+H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+HOTOVO_DATE_RE = re.compile(r"_\((\d{4}-\d{2}-\d{2})\)_")
 
 
 def _prague_today() -> date:
@@ -83,6 +90,13 @@ def _waiting_from(block: str) -> tuple[str | None, str | None]:
 
 
 PRIORITY_LINE_RE = re.compile(r"^\*\*([^*]+)\*\*\s*$", re.MULTILINE)
+TOP_PIN_RE = re.compile(r"📌\s*TOP|TOP\s*pin", re.I)
+
+
+def _pin_top_from(text: str) -> bool:
+    pl = PRIORITY_LINE_RE.search(text)
+    search_in = pl.group(1) if pl else text
+    return bool(TOP_PIN_RE.search(search_in))
 
 
 def _priority_from(text: str) -> str:
@@ -137,7 +151,107 @@ def _parse_hotovo_section(text: str) -> dict[str, str]:
         name = re.sub(r"\s*✅.*$", "", name).strip()
         name = re.sub(r"\s*_\([^)]*\)_\s*$", "", name).strip()
         out[tid] = name
+    for hm in HOTOVO_HEAD_RE.finditer(section):
+        tid = hm.group(1)
+        name = hm.group(2).strip()
+        if tid not in out:
+            out[tid] = name
     return out
+
+
+def _hotovo_dates_this_week(text: str) -> int:
+    """Count HOTOVO bullets with _(YYYY-MM-DD)_ in the last 7 days."""
+    m = HOTOVO_SECTION_RE.search(text)
+    if not m:
+        return 0
+    section = text[m.start() :]
+    next_h2 = re.search(r"^##\s+", section[1:], re.MULTILINE)
+    if next_h2:
+        section = section[: next_h2.start() + 1]
+    cutoff = _prague_today() - timedelta(days=7)
+    n = 0
+    for hm in HOTOVO_ITEM_RE.finditer(section):
+        block = hm.group(0)
+        dm = HOTOVO_DATE_RE.search(block)
+        if dm:
+            try:
+                if date.fromisoformat(dm.group(1)) >= cutoff:
+                    n += 1
+            except ValueError:
+                pass
+    return n
+
+
+def _section_content(text: str, *names: str) -> str:
+    names_l = {n.lower() for n in names}
+    parts = list(H2_RE.finditer(text))
+    for i, m in enumerate(parts):
+        if m.group(1).strip().lower() in names_l:
+            start = m.end()
+            end = parts[i + 1].start() if i + 1 < len(parts) else len(text)
+            return text[start:end].strip()
+    return ""
+
+
+def _context_snippet(kontext: str, limit: int = 400) -> str:
+    chunks: list[str] = []
+    for line in kontext.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        if s.startswith(">"):
+            s = s.lstrip("> ").strip()
+        chunks.append(s)
+    joined = " ".join(chunks)
+    if len(joined) <= limit:
+        return joined.strip()
+    return joined[: limit - 1].rstrip() + "…"
+
+
+def _parse_bullets(section: str, max_items: int = 12) -> list[str]:
+    out: list[str] = []
+    for line in section.splitlines():
+        s = line.strip()
+        if s.startswith("- ") and not re.match(r"^-\s+\[[ x]\]", s):
+            out.append(s[2:].strip())
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def _parse_materials_section(section: str) -> list[dict]:
+    out: list[dict] = []
+    for line in section.splitlines():
+        s = line.strip()
+        if not s.startswith("-"):
+            continue
+        linked = False
+        for label, url in MD_LINK_RE.findall(s):
+            if url.startswith("http"):
+                out.append({"label": (label or url).strip(), "url": url})
+                linked = True
+        if not linked:
+            um = URL_RE.search(s)
+            if um:
+                out.append({"label": s[:80], "url": um.group(0)})
+        if len(out) >= 20:
+            break
+    return out
+
+
+def _parse_project_hub(text: str, slug: str) -> dict:
+    kontext = _section_content(text, "Kontext")
+    return {
+        "contextSnippet": _context_snippet(kontext) if kontext else "",
+        "openQuestions": _parse_bullets(
+            _section_content(text, "Otevřené otázky", "Otevřené otázky / čeká na data")
+        ),
+        "materials": _parse_materials_section(
+            _section_content(text, "Materiály", "Materiály a poznámky")
+        ),
+        "progress": _parse_bullets(_section_content(text, "Progress")),
+        "outputFolder": f"02-PROJEKTY/{slug}/",
+    }
 
 
 def _is_source_only_line(line: str) -> bool:
@@ -192,8 +306,9 @@ def _parse_source(block: str) -> dict:
     return {}
 
 
-def _parse_file(path: Path) -> tuple[str, str, list[dict], dict[str, str]]:
-    text = path.read_text(encoding="utf-8")
+def _parse_file(path: Path, text: str | None = None) -> tuple[str, str, list[dict], dict[str, str]]:
+    if text is None:
+        text = path.read_text(encoding="utf-8")
     hotovo = _parse_hotovo_section(text)
     slug_m = SLUG_RE.search(text)
     slug = slug_m.group(1) if slug_m else path.stem
@@ -230,6 +345,8 @@ def _parse_file(path: Path) -> tuple[str, str, list[dict], dict[str, str]]:
         ice = _ice_from(head_and_block)
         if ice:
             task_row["ice"] = ice
+        if _pin_top_from(head_and_block):
+            task_row["pinTop"] = True
         task_row.update(_parse_source(block))
         tasks.append(task_row)
 
@@ -279,7 +396,8 @@ def sync(force: bool = False) -> bool:
     for md in sorted((VAULT / "02-PROJEKTY").glob("*.md")):
         if md.name.startswith("_") or md.name.startswith("._"):
             continue
-        slug, title, parsed, hotovo = _parse_file(md)
+        text = md.read_text(encoding="utf-8")
+        slug, title, parsed, hotovo = _parse_file(md, text)
         if slug not in proj_order:
             proj_order.append(slug)
         proj = data.setdefault("projects", {}).setdefault(
@@ -287,12 +405,14 @@ def sync(force: bool = False) -> bool:
             {
                 "name": title,
                 "acc": ACC_MAP.get(slug, "gr"),
-                "watch": [],
-                "materials": [],
-                "done": [],
             },
         )
         proj["name"] = title
+        hub_meta = _parse_project_hub(text, slug)
+        proj.update(hub_meta)
+        proj["hubFile"] = f"02-PROJEKTY/{md.name}"
+        proj.pop("watch", None)
+        proj.pop("done", None)
         for pt in parsed:
             key = (slug, pt["id"])
             seen_keys.add(key)
@@ -316,6 +436,10 @@ def sync(force: bool = False) -> bool:
                 else:
                     existing.pop("sourceUrl", None)
                     existing.pop("sourceLabel", None)
+                if pt.get("pinTop"):
+                    existing["pinTop"] = True
+                else:
+                    existing.pop("pinTop", None)
             else:
                 new_t = {
                     "p": pt["p"],
@@ -329,6 +453,8 @@ def sync(force: bool = False) -> bool:
                 }
                 if pt["p"] == "Waiting":
                     new_t["waitUntil"] = pt.get("waitUntil") or _default_wait_until()
+                if pt.get("pinTop"):
+                    new_t["pinTop"] = True
                 data.setdefault("tasks", []).append(new_t)
                 by_id[key] = new_t
 
@@ -353,6 +479,15 @@ def sync(force: bool = False) -> bool:
                 }
                 data.setdefault("tasks", []).append(new_t)
                 by_id[key] = new_t
+
+        slug_tasks = [t for t in data.get("tasks", []) if t.get("proj") == slug]
+        open_tasks = [t for t in slug_tasks if t.get("st") != "dn"]
+        proj["stats"] = {
+            "open": len(open_tasks),
+            "waiting": sum(1 for t in open_tasks if t.get("p") == "Waiting"),
+            "asap": sum(1 for t in open_tasks if t.get("p") == "ASAP"),
+            "doneWeek": _hotovo_dates_this_week(text),
+        }
 
     # Prune orphans: tasks in JSON but no longer in any md (md is SSOT)
     before = len(data.get("tasks", []))

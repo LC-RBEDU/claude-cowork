@@ -33,7 +33,7 @@ from google_sa_json import parse_service_account_json  # noqa: E402
 VAULT = Path(
     os.environ.get(
         "VAULT_PATH",
-        Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC",
+        Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"),
     )
 )
 OUT = Path(os.environ.get("CALENDAR_EVENTS_JSON", VAULT / "00-System/calendar-events.json"))

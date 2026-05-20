@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve MrLUC/00-System for live dashboard polling (no browser cache)."""
+"""Serve OBSIDIAN/00-System for live dashboard polling (no browser cache)."""
 from __future__ import annotations
 
 import argparse
@@ -16,14 +16,14 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Serve dashboard from MrLUC/00-System")
+    parser = argparse.ArgumentParser(description="Serve dashboard from OBSIDIAN/00-System")
     parser.add_argument("--port", type=int, default=int(os.environ.get("DASHBOARD_PORT", "8765")))
     args = parser.parse_args()
 
     vault = Path(
         os.environ.get(
             "VAULT_PATH",
-            Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC",
+            Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"),
         )
     )
     root = vault / "00-System"

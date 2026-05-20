@@ -8,7 +8,7 @@
 - obchodni-podminky-rb-edu: H -> OP
 - rb-network:      N -> RBN
 
-Updates `02-Projekty/<slug>.md` (headers, HOTOVO bullets, in-body references) AND
+Updates `02-PROJEKTY/<slug>.md` (headers, HOTOVO bullets, in-body references) AND
 `00-System/dashboard-tasks-source.json` (preserves ICE/dl/waitUntil/ch).
 """
 from __future__ import annotations
@@ -22,10 +22,10 @@ from pathlib import Path
 VAULT = Path(
     os.environ.get(
         "VAULT_PATH",
-        Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC",
+        Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"),
     )
 )
-PROJEKTY = VAULT / "02-Projekty"
+PROJEKTY = VAULT / "02-PROJEKTY"
 SOURCE_JSON = VAULT / "00-System/dashboard-tasks-source.json"
 
 HEAD_RE = re.compile(

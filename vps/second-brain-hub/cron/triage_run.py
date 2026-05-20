@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-VAULT = Path(os.environ.get("VAULT_PATH", Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC"))
+VAULT = Path(os.environ.get("VAULT_PATH", Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN")))
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 
 # Standard MrLUC INBOX layout (Drive mirror → VPS /data/mrluc/01-INBOX/)

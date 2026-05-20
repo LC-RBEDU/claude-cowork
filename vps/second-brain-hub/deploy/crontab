@@ -18,3 +18,8 @@ TZ=Europe/Prague
 0 7 * * 0,6 /usr/local/bin/python3 /app/cron/triage_run.py >> /var/log/second-brain/triage.log 2>&1
 5 7 * * 0,6 /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
 10 7 * * 0,6 /usr/local/bin/python3 /app/cron/edu_news_refresh.py >> /var/log/second-brain/edu.log 2>&1
+
+# Ne: tydenni shrnuti + retro draft (vecer)
+0 20 * * 0 /usr/local/bin/python3 /app/cron/weekly_summary_draft.py >> /var/log/second-brain/weekly.log 2>&1
+10 20 * * 0 /usr/local/bin/python3 /app/cron/retro_draft.py >> /var/log/second-brain/retro.log 2>&1
+15 20 * * 0 /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1

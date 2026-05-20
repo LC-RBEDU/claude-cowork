@@ -5,7 +5,11 @@ Icon?
 # Cursor IDE local state (not project source)
 .cursor/
 
-# Generated dashboard / Python cache (SSOT is MrLUC vault on iCloud)
+# Generated dashboard / Python cache (SSOT vault on Google Drive)
 vps/second-brain-hub/web/dashboard-data.json
+OBSIDIAN/00-System/dashboard-data.json
+OBSIDIAN/00-System/dashboard-build-stamp.json
+OBSIDIAN/00-System/Dashboard.html
+OBSIDIAN/00-System/calendar-events.json
 **/__pycache__/
 *.pyc

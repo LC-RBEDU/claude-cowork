@@ -25,7 +25,7 @@ from zoneinfo import ZoneInfo
 VAULT = Path(
     os.environ.get(
         "VAULT_PATH",
-        Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC",
+        Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"),
     )
 )
 TASKS_JSON = Path(

@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-VAULT = Path(os.environ.get("VAULT_PATH", Path.home() / "Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC"))
+VAULT = Path(os.environ.get("VAULT_PATH", Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN")))
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 _WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 _DEFAULT_OUT = _WEB_DIR / "dashboard-data.json"
@@ -309,6 +309,20 @@ def top_priority(tasks: list, limit: int = 3) -> list:
     ranked = sorted(open_tasks, key=score, reverse=True)
     picked: list[dict] = []
     seen: set[str] = set()
+    pinned = sorted(
+        [t for t in open_tasks if t.get("pinTop")],
+        key=score,
+        reverse=True,
+    )
+    for t in pinned:
+        tid = t.get("id")
+        if tid and tid in seen:
+            continue
+        picked.append(t)
+        if tid:
+            seen.add(tid)
+        if len(picked) >= limit:
+            return picked[:limit]
     for t in ranked:
         tid = t.get("id")
         if tid and tid in seen:
@@ -339,8 +353,8 @@ def top_priority(tasks: list, limit: int = 3) -> list:
 
 
 def meta_refresh_tag() -> str:
-    """file:// fallback: full page reload when standalone HTML has no fetch API."""
-    raw = os.environ.get("DASHBOARD_AUTO_REFRESH_SEC", "30").strip()
+    """Legacy file:// full-page reload — výchozí vypnuto (resetuje vyhledávání a UI)."""
+    raw = os.environ.get("DASHBOARD_AUTO_REFRESH_SEC", "0").strip()
     if raw.lower() in ("0", "false", "no", "off"):
         return ""
     try:
@@ -355,7 +369,7 @@ def build_standalone_html(payload: dict) -> str:
     css = (_WEB_DIR / "styles.css").read_text(encoding="utf-8")
     js = (_WEB_DIR / "app.js").read_text(encoding="utf-8")
     data_js = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
-    poll_sec = os.environ.get("DASHBOARD_POLL_SEC", "10").strip() or "10"
+    poll_sec = os.environ.get("DASHBOARD_POLL_SEC", "60").strip() or "60"
     idx = (_WEB_DIR / "index.html").read_text(encoding="utf-8")
     start = idx.index("<body>") + len("<body>")
     end = idx.index("</body>")
@@ -432,6 +446,49 @@ def refresh_sources() -> None:
         subprocess.run([sys.executable, str(sync_script)], check=False)
 
 
+def iso_week_label(d: date | None = None) -> str:
+    d = d or prague_today()
+    y, w, _ = d.isocalendar()
+    return f"{y}-W{w:02d}"
+
+
+def weekly_review_meta() -> dict:
+    """Latest weekly draft/final paths for dashboard."""
+    wdir = VAULT / "00-System/weekly"
+    week = iso_week_label()
+    draft = wdir / f"{week}-draft.md"
+    final = wdir / f"{week}.md"
+    meta: dict = {"week": week}
+    if draft.is_file():
+        meta["draftFile"] = str(draft.relative_to(VAULT))
+    if final.is_file():
+        meta["finalFile"] = str(final.relative_to(VAULT))
+    retro_d = VAULT / "00-System/Memory" / f"retro-{week}-draft.md"
+    retro_f = VAULT / "00-System/Memory" / f"retro-{week}.md"
+    if retro_d.is_file():
+        meta["retroDraftFile"] = str(retro_d.relative_to(VAULT))
+    if retro_f.is_file():
+        meta["retroFinalFile"] = str(retro_f.relative_to(VAULT))
+    return meta
+
+
+def dashboard_data_fingerprint(payload: dict) -> str:
+    """Stable hash — změna jen při obsahu úkolů/badges, ne při každém rebuild timestampu."""
+    import hashlib
+
+    core = {
+        "inboxCount": payload.get("inboxCount"),
+        "pendingCount": payload.get("pendingCount"),
+        "waitingExpiredCount": payload.get("waitingExpiredCount"),
+        "tasks": payload.get("tasks"),
+        "waiting": payload.get("waiting"),
+        "topPriority": payload.get("topPriority"),
+        "eduNewsUpdated": payload.get("eduNewsUpdated"),
+    }
+    blob = json.dumps(core, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
 def dashboard_file_url(path: Path | None = None) -> str:
     p = (path or OUT_HTML).resolve()
     from urllib.parse import quote
@@ -466,18 +523,21 @@ def main() -> None:
         "topPriority": top_priority(tasks),
         "eduNews": src.get("eduNews", []),
         "eduNewsUpdated": src.get("eduNewsUpdated"),
+        "weeklyReview": weekly_review_meta(),
         "calendar": load_calendar(),
     }
+    generated = payload["generated"]
+    fingerprint = dashboard_data_fingerprint(payload)
+    payload["fingerprint"] = fingerprint
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     vault_system = VAULT / "00-System"
     vault_system.mkdir(parents=True, exist_ok=True)
     vault_data = vault_system / "dashboard-data.json"
     vault_stamp = vault_system / "dashboard-build-stamp.json"
-    generated = payload["generated"]
     vault_data.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     vault_stamp.write_text(
-        json.dumps({"generated": generated}, ensure_ascii=False, indent=2),
+        json.dumps({"generated": generated, "fingerprint": fingerprint}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     print(

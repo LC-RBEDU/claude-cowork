@@ -66,17 +66,187 @@ function applyTaskProjectEl(el, t, data) {
   }
 }
 
+function normalizeSearchQuery(q) {
+  return (q || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+function taskSearchHaystack(t, data) {
+  const parts = [];
+  const projName = data?.projects?.[t.proj]?.name || '';
+  parts.push(t.id, t.displayId, t.name, t.proj, projName, t.dl, t.p, t.sourceLabel);
+  (t.ch || []).forEach((c) => {
+    parts.push(c.t);
+    if (c.n != null) parts.push(String(c.n));
+  });
+  return normalizeSearchQuery(parts.filter(Boolean).join(' '));
+}
+
+function tagSearchTarget(el, haystack) {
+  el.classList.add('search-target');
+  el.dataset.searchHaystack = haystack;
+}
+
+function applyTaskSearchTarget(el, t, data) {
+  tagSearchTarget(el, taskSearchHaystack(t, data));
+}
+
+function tagAuxSearchTargets(root, selector) {
+  if (!root) return;
+  root.querySelectorAll(selector).forEach((el) => {
+    tagSearchTarget(el, normalizeSearchQuery(el.textContent || ''));
+  });
+}
+
+let dashboardSearchQuery = '';
+
+function runDashboardSearch(raw) {
+  dashboardSearchQuery = raw || '';
+  persistSearchQuery();
+  const q = normalizeSearchQuery(dashboardSearchQuery);
+  const targets = document.querySelectorAll('.search-target');
+  let matchCount = 0;
+
+  targets.forEach((el) => {
+    const hay = el.dataset.searchHaystack || '';
+    const match = !q || hay.includes(q);
+    el.classList.toggle('search-hidden', !match);
+    el.classList.toggle('search-match', Boolean(q && match));
+    if (match && q) matchCount += 1;
+  });
+
+  if (q) {
+    document.querySelectorAll('details').forEach((d) => {
+      if (d.querySelector('.search-target:not(.search-hidden)')) d.open = true;
+    });
+  }
+
+  document.querySelectorAll('.col-details, .proj-details').forEach((panel) => {
+    if (!q) {
+      panel.classList.remove('search-panel-empty');
+      return;
+    }
+    const has = panel.querySelector('.search-target:not(.search-hidden)');
+    panel.classList.toggle('search-panel-empty', !has);
+  });
+
+  const sections = [
+    document.getElementById('top-priority'),
+    document.getElementById('task-columns')?.closest('.panel'),
+    document.getElementById('by-project')?.closest('.panel'),
+  ].filter(Boolean);
+  sections.forEach((section) => {
+    if (!q) {
+      section.classList.remove('search-section-empty');
+      return;
+    }
+    const has = section.querySelector('.search-target:not(.search-hidden)');
+    section.classList.toggle('search-section-empty', !has);
+  });
+
+  const status = document.getElementById('search-status');
+  if (status) {
+    status.classList.remove('is-empty');
+    if (!q) status.textContent = '';
+    else if (matchCount === 0) {
+      status.textContent = 'Žádné výsledky';
+      status.classList.add('is-empty');
+    } else {
+      const n = matchCount === 1 ? 'výsledek' : matchCount < 5 ? 'výsledky' : 'výsledků';
+      status.textContent = `${matchCount} ${n}`;
+    }
+  }
+}
+
+function persistSearchQuery() {
+  try {
+    sessionStorage.setItem(SEARCH_STATE_KEY, dashboardSearchQuery);
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadPersistedSearchQuery() {
+  try {
+    return sessionStorage.getItem(SEARCH_STATE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function restoreSearchFromStorage() {
+  const input = document.getElementById('dashboard-search');
+  if (!input) return;
+  const saved = loadPersistedSearchQuery();
+  if (saved && input.value !== saved) input.value = saved;
+  if (input.value) runDashboardSearch(input.value);
+}
+
+function bindDashboardSearch() {
+  if (window.__DASHBOARD_SEARCH_BOUND__) return;
+  window.__DASHBOARD_SEARCH_BOUND__ = true;
+  const input = document.getElementById('dashboard-search');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    runDashboardSearch(input.value);
+    persistSearchQuery();
+  });
+  input.addEventListener('search', () => {
+    if (!input.value) runDashboardSearch('');
+    persistSearchQuery();
+  });
+  window.__DASHBOARD_SEARCH_INPUT__ = input;
+}
+
+function refreshDashboardSearch() {
+  tagAuxSearchTargets(document.getElementById('calendar-root'), '.cal-event');
+  tagAuxSearchTargets(document.getElementById('edu-news'), '.edu-item');
+  const input = document.getElementById('dashboard-search');
+  if (input?.value) runDashboardSearch(input.value);
+}
+
 async function loadData() {
+  try {
+    const res = await fetch('dashboard-data.json?' + Date.now(), { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      window.__DASHBOARD_DATA__ = data;
+      return data;
+    }
+  } catch {
+    /* file:// nebo offline — fallback na embed */
+  }
   if (window.__DASHBOARD_DATA__) return window.__DASHBOARD_DATA__;
-  const res = await fetch('dashboard-data.json?' + Date.now());
-  if (!res.ok) throw new Error('dashboard-data.json missing — spusť build_dashboard.py');
-  return res.json();
+  throw new Error('dashboard-data.json missing — spusť build_dashboard.py');
 }
 
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s ?? '';
   return d.innerHTML;
+}
+
+const CZ_TZ = 'Europe/Prague';
+
+/** ISO / YYYY-MM-DD → český formát (např. 20. 5. 2026 18:09:53). */
+function formatCzDateTime(isoOrDate) {
+  if (!isoOrDate) return '—';
+  const s = String(isoOrDate).trim();
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const d = dateOnly ? new Date(`${s}T12:00:00`) : new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return new Intl.DateTimeFormat('cs-CZ', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    ...(dateOnly
+      ? {}
+      : { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+    timeZone: CZ_TZ,
+  }).format(d);
 }
 
 function iceScore(t) {
@@ -208,6 +378,7 @@ function taskOpenKey(t) {
 }
 
 const OPEN_STATE_KEY = 'mrluc-dashboard-open';
+const SEARCH_STATE_KEY = 'mrluc-dashboard-search';
 
 function captureOpenState() {
   const keys = [];
@@ -293,6 +464,7 @@ function renderTop(data) {
     const progress = subtaskProgress(t.ch);
     const { displayId } = taskProjectStyle(t, data);
     applyTaskProjectEl(div, t, data);
+    applyTaskSearchTarget(div, t, data);
     const body = renderTaskRow(t, { showMeta: false, displayId });
     div.innerHTML = `${body}
       <div class="proj">${esc(proj)} · ${esc(t.p)}${t.dl ? ' · ' + esc(t.dl) : ''}${
@@ -317,6 +489,7 @@ function renderColumnBlock(root, key, list, data, extraClass = '') {
     item.className = 'task-item';
     const { displayId } = taskProjectStyle(t, data);
     applyTaskProjectEl(item, t, data);
+    applyTaskSearchTarget(item, t, data);
     item.innerHTML = renderTaskRow(t, { showMeta: true, displayId });
     wrap.appendChild(item);
   });
@@ -344,29 +517,187 @@ function renderColumns(data) {
   }
 }
 
+const PROJ_SORT_KEY = 'mrluc-dashboard-proj-sort';
+const PROJ_SORT_MODES = ['name', 'tasks', 'ice'];
+
+function loadProjectSortMode() {
+  try {
+    const v = localStorage.getItem(PROJ_SORT_KEY);
+    return PROJ_SORT_MODES.includes(v) ? v : 'name';
+  } catch {
+    return 'name';
+  }
+}
+
+function saveProjectSortMode(mode) {
+  try {
+    localStorage.setItem(PROJ_SORT_KEY, mode);
+  } catch {
+    /* private mode */
+  }
+}
+
+function projectPanelTasks(data, slug, waitingIds) {
+  return (data.tasks || []).filter((t) => {
+    if (t.proj !== slug || t.st === 'dn') return false;
+    if (t.p === 'Waiting' && !waitingIds.has(`${t.proj}:${t.id}`)) return false;
+    return true;
+  });
+}
+
+function projectHasBriefing(proj) {
+  return !!(
+    proj.contextSnippet ||
+    proj.progress?.length ||
+    proj.materials?.length ||
+    proj.openQuestions?.length
+  );
+}
+
+function projectIceSum(tasks) {
+  return tasks.reduce((sum, t) => sum + (iceScore(t) ?? 0), 0);
+}
+
+function sortedProjectSlugs(data, sortMode) {
+  const order = data.proj_order || [];
+  const waitingIds = new Set((data.waiting || []).map((t) => `${t.proj}:${t.id}`));
+  const slugs = order.filter((slug) => {
+    const proj = data.projects?.[slug] || {};
+    const tasks = projectPanelTasks(data, slug, waitingIds);
+    return tasks.length > 0 || projectHasBriefing(proj);
+  });
+
+  const metrics = (slug) => {
+    const proj = data.projects?.[slug] || {};
+    const tasks = projectPanelTasks(data, slug, waitingIds);
+    const name = (proj.name || slug).toLocaleLowerCase('cs');
+    return { name, tasks: tasks.length, ice: projectIceSum(tasks) };
+  };
+
+  return slugs.slice().sort((a, b) => {
+    const ma = metrics(a);
+    const mb = metrics(b);
+    if (sortMode === 'tasks') {
+      if (mb.tasks !== ma.tasks) return mb.tasks - ma.tasks;
+      return ma.name.localeCompare(mb.name, 'cs');
+    }
+    if (sortMode === 'ice') {
+      if (mb.ice !== ma.ice) return mb.ice - ma.ice;
+      return ma.name.localeCompare(mb.name, 'cs');
+    }
+    return ma.name.localeCompare(mb.name, 'cs');
+  });
+}
+
+function syncProjectSortUi(mode) {
+  document.querySelectorAll('.proj-sort-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.sort === mode);
+  });
+}
+
+function bindProjectSort(lastDataRef) {
+  const bar = document.getElementById('proj-sort-bar');
+  if (!bar || window.__DASHBOARD_PROJ_SORT_BOUND__) return;
+  window.__DASHBOARD_PROJ_SORT_BOUND__ = true;
+  const mode = loadProjectSortMode();
+  syncProjectSortUi(mode);
+  bar.addEventListener('click', (e) => {
+    const btn = e.target.closest('.proj-sort-btn');
+    if (!btn?.dataset.sort || !PROJ_SORT_MODES.includes(btn.dataset.sort)) return;
+    const next = btn.dataset.sort;
+    saveProjectSortMode(next);
+    syncProjectSortUi(next);
+    if (lastDataRef.current) renderByProject(lastDataRef.current);
+  });
+}
+
+function renderProjectBriefing(proj, slug) {
+  if (!proj) return '';
+  const parts = [];
+  const st = proj.stats || {};
+  const statBits = [];
+  if (st.open != null) statBits.push(`${st.open} otevřených`);
+  if (st.asap) statBits.push(`${st.asap} ASAP`);
+  if (st.waiting) statBits.push(`${st.waiting} čeká`);
+  if (st.doneWeek) statBits.push(`${st.doneWeek} hotovo týden`);
+  if (statBits.length) {
+    parts.push(`<p class="proj-brief-stats">${esc(statBits.join(' · '))}</p>`);
+  }
+  if (proj.progress?.length) {
+    const li = proj.progress
+      .slice(0, 3)
+      .map((p) => `<li>${esc(p)}</li>`)
+      .join('');
+    parts.push(`<ul class="proj-brief-progress">${li}</ul>`);
+  } else if (proj.contextSnippet) {
+    parts.push(`<p class="proj-brief-context">${esc(proj.contextSnippet)}</p>`);
+  }
+  if (proj.openQuestions?.length) {
+    const li = proj.openQuestions
+      .slice(0, 4)
+      .map((q) => `<li>${esc(q)}</li>`)
+      .join('');
+    parts.push(`<p class="proj-brief-label">Otázky</p><ul class="proj-brief-questions">${li}</ul>`);
+  }
+  if (proj.materials?.length) {
+    const links = proj.materials
+      .slice(0, 6)
+      .map((m) => {
+        const url = m.url || '#';
+        const label = m.label || url;
+        return `<a class="proj-mat-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a>`;
+      })
+      .join('');
+    parts.push(`<p class="proj-brief-label">Materiály</p><div class="proj-brief-materials">${links}</div>`);
+  }
+  if (proj.hubFile || proj.outputFolder) {
+    const bits = [];
+    if (proj.hubFile) bits.push(`Hub: ${proj.hubFile}`);
+    if (proj.outputFolder) bits.push(`Výstupy: ${proj.outputFolder}`);
+    parts.push(`<p class="proj-brief-folder hint">${esc(bits.join(' · '))}</p>`);
+  }
+  if (!parts.length) return '';
+  return `<div class="proj-briefing">${parts.join('')}</div>`;
+}
+
 function renderByProject(data) {
   const root = document.getElementById('by-project');
   const order = data.proj_order || [];
+  const orderIndex = new Map(order.map((slug, i) => [slug, i]));
   const waitingIds = new Set((data.waiting || []).map((t) => `${t.proj}:${t.id}`));
+  const sortMode = loadProjectSortMode();
+  syncProjectSortUi(sortMode);
   root.innerHTML = '';
-  order.forEach((slug, index) => {
-    const tasks = (data.tasks || []).filter((t) => {
-      if (t.proj !== slug || t.st === 'dn') return false;
-      if (t.p === 'Waiting' && !waitingIds.has(`${t.proj}:${t.id}`)) return false;
-      return true;
-    });
-    if (!tasks.length) return;
-    const name = data.projects?.[slug]?.name || slug;
-    const color = projectColor(slug, index);
+  sortedProjectSlugs(data, sortMode).forEach((slug) => {
+    const proj = data.projects?.[slug] || {};
+    const tasks = projectPanelTasks(data, slug, waitingIds);
+    const name = proj.name || slug;
+    const color = projectColor(slug, orderIndex.get(slug) ?? 0);
     const withCh = tasks.filter((t) => t.ch?.length).length;
+    const iceSum = projectIceSum(tasks);
+    let countLabel = tasks.length
+      ? `${tasks.length} úkolů${withCh ? ` · ${withCh} s checklistem` : ''}`
+      : 'jen kontext';
+    if (sortMode === 'ice' && tasks.length) {
+      countLabel += ` · Σ ICE ${iceSum.toFixed(1)}`;
+    }
 
     const block = document.createElement('details');
     block.className = 'proj-details';
     block.dataset.openKey = 'proj:' + slug;
     block.innerHTML = `<summary class="proj-summary" style="--proj-color:${color}">
       <span class="proj-name">${esc(name)}</span>
-      <span class="proj-count">${tasks.length} úkolů${withCh ? ` · ${withCh} s checklistem` : ''}</span>
+      <span class="proj-count">${esc(countLabel)}</span>
     </summary>`;
+
+    const body = document.createElement('div');
+    body.className = 'proj-body';
+    const briefHtml = renderProjectBriefing(proj, slug);
+    if (briefHtml) {
+      const brief = document.createElement('div');
+      brief.innerHTML = briefHtml;
+      body.appendChild(brief.firstElementChild || brief);
+    }
 
     const inner = document.createElement('div');
     inner.className = 'proj-tasks';
@@ -375,10 +706,12 @@ function renderByProject(data) {
       row.className = 'task-item';
       const { displayId } = taskProjectStyle(t, data);
       applyTaskProjectEl(row, t, data);
+      applyTaskSearchTarget(row, t, data);
       row.innerHTML = renderTaskRow(t, { showMeta: true, displayId });
       inner.appendChild(row);
     });
-    block.appendChild(inner);
+    body.appendChild(inner);
+    block.appendChild(body);
     root.appendChild(block);
   });
 }
@@ -421,11 +754,62 @@ function formatEventTime(ev) {
   return `${t0}–${t1}`;
 }
 
+function eventStartMs(ev) {
+  if (!ev.start) return 0;
+  const d = new Date(ev.start);
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+/** Časové události dnešního dne po skončení (end < teď) — schovat v průběhu dne. Zítra + celodenní beze změny. */
+function eventEndMs(ev) {
+  if (ev.allDay) return null;
+  const raw = ev.end || ev.start;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
+function isCalendarEventOverdueToday(ev) {
+  const day = (ev.start || '').slice(0, 10);
+  if (day !== pragueYmd()) return false;
+  if (ev.allDay) return false;
+  const endMs = eventEndMs(ev);
+  return endMs != null && endMs < Date.now();
+}
+
+/** Kalendářové „šumy“ — v dashboardu se nevykreslují. */
+const CALENDAR_HIDDEN_TITLES = new Set(['🚌 Travel', '😎 Decompress & notes']);
+
+function isCalendarEventHidden(ev) {
+  return CALENDAR_HIDDEN_TITLES.has((ev.title || '').trim());
+}
+
+function filterCalendarEventsForDisplay(events) {
+  return events.filter((ev) => {
+    if (isCalendarEventHidden(ev)) return false;
+    if (!isCalendarDayAllowed((ev.start || '').slice(0, 10))) return false;
+    if (isCalendarEventOverdueToday(ev)) return false;
+    return true;
+  });
+}
+
+let calendarOverdueTimer = null;
+
+function startCalendarOverdueSweep(dataRef) {
+  if (calendarOverdueTimer) {
+    clearInterval(calendarOverdueTimer);
+    calendarOverdueTimer = null;
+  }
+  calendarOverdueTimer = setInterval(() => {
+    if (dataRef.current) renderCalendar(dataRef.current);
+  }, 60_000);
+}
+
 function renderCalendar(data) {
   const el = document.getElementById('calendar-root');
   if (!el) return;
   const cal = data.calendar || {};
-  const events = (cal.events || []).filter((ev) => isCalendarDayAllowed((ev.start || '').slice(0, 10)));
+  const events = filterCalendarEventsForDisplay(cal.events || []);
   if (!events.length) {
     const err = cal.fetchError ? ` (${cal.fetchError})` : '';
     el.innerHTML = `<p class="hint">Kalendář prázdný nebo není nastaven SA${esc(err)}. Viz config.example.env.</p>`;
@@ -443,13 +827,17 @@ function renderCalendar(data) {
     html += `<p class="hint cal-meta">Zdroj: ${esc(cal.source)}${cal.fetchError ? ' — ' + esc(cal.fetchError) : ''}</p>`;
   }
   days.forEach((day) => {
+    const dayEvents = (byDay[day] || []).filter((ev) => !isCalendarEventOverdueToday(ev));
+    if (!dayEvents.length) return;
     const label = new Date(day + 'T12:00:00').toLocaleDateString('cs-CZ', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
     });
     html += `<div class="cal-day"><h4 class="cal-day-title">${esc(label)}</h4><ul class="cal-events">`;
-    byDay[day].forEach((ev) => {
+    dayEvents
+      .sort((a, b) => eventStartMs(a) - eventStartMs(b))
+      .forEach((ev) => {
       const time = formatEventTime(ev);
       const loc = ev.location ? `<span class="cal-loc">${esc(ev.location)}</span>` : '';
       const link = ev.htmlLink
@@ -539,6 +927,30 @@ function formatEduItem(item) {
   return `<li class="edu-item"><strong>${title}</strong>${one ? ' — ' + one : ''}${meta}</li>`;
 }
 
+function renderWeeklyReview(data) {
+  const el = document.getElementById('weekly-review');
+  if (!el) return;
+  const w = data.weeklyReview || {};
+  const week = w.week || '—';
+  const lines = [];
+  lines.push(`<p><strong>Týden ${esc(week)}</strong></p>`);
+  if (w.draftFile) {
+    lines.push(`<p>Weekly draft: <code>${esc(w.draftFile)}</code></p>`);
+  } else {
+    lines.push('<p class="hint">Weekly draft zatím ne — čeká na nedělní cron nebo spusť <code>weekly_summary_draft.py</code>.</p>');
+  }
+  if (w.finalFile) {
+    lines.push(`<p>Weekly finální: <code>${esc(w.finalFile)}</code></p>`);
+  }
+  if (w.retroDraftFile) {
+    lines.push(`<p>Retro draft: <code>${esc(w.retroDraftFile)}</code></p>`);
+  }
+  if (w.retroFinalFile) {
+    lines.push(`<p>Retro finální: <code>${esc(w.retroFinalFile)}</code></p>`);
+  }
+  el.innerHTML = lines.join('');
+}
+
 function renderEdu(data) {
   const el = document.getElementById('edu-news');
   const items = data.eduNews || [];
@@ -546,22 +958,27 @@ function renderEdu(data) {
     el.innerHTML = '<p class="hint">OPS2 — žádná témata. Cron <code>edu_news_refresh.py</code> nebo po natočení videa <code>--clear</code>.</p>';
     return;
   }
-  const updated = data.eduNewsUpdated ? `<p class="hint edu-updated">Témata: ${esc(data.eduNewsUpdated)}</p>` : '';
+  const updated = data.eduNewsUpdated
+    ? `<p class="hint edu-updated">Témata: ${esc(formatCzDateTime(data.eduNewsUpdated))}</p>`
+    : '';
   el.innerHTML = updated + '<ul class="edu-list">' + items.map(formatEduItem).join('') + '</ul>';
 }
 
 const LIVE_POLL_MS = (() => {
-  const sec = parseInt(window.DASHBOARD_POLL_SEC || '10', 10);
-  return Number.isFinite(sec) && sec > 0 ? sec * 1000 : 10000;
+  const sec = parseInt(window.DASHBOARD_POLL_SEC || '60', 10);
+  return Number.isFinite(sec) && sec > 0 ? sec * 1000 : 60000;
 })();
 
-let lastSeenGenerated = null;
+let lastSeenFingerprint = null;
+let livePollPaused = false;
+const dashboardDataRef = { current: null };
 
 function renderAll(data, opts = {}) {
+  dashboardDataRef.current = data;
   const openKeys = opts.preserveOpen ? captureOpenState() : [];
   const meta = document.getElementById('meta-updated');
   if (meta) {
-    let text = 'Aktualizováno: ' + (data.generated || data.updated || '—');
+    let text = 'Aktualizováno: ' + formatCzDateTime(data.generated || data.updated);
     if (data.waitingExpiredCount > 0) {
       text += ` · čekání vypršelo: ${data.waitingExpiredCount}`;
     }
@@ -572,31 +989,61 @@ function renderAll(data, opts = {}) {
   renderCalendar(data);
   renderColumns(data);
   renderByProject(data);
+  renderWeeklyReview(data);
   renderEdu(data);
+  restoreSearchFromStorage();
+  refreshDashboardSearch();
   restoreOpenState(openKeys.length ? openKeys : loadPersistedOpenState());
   if (opts.preserveOpen) persistOpenState();
 }
 
+function shouldPauseLivePoll() {
+  if (livePollPaused) return true;
+  if (document.hidden) return true;
+  const input = window.__DASHBOARD_SEARCH_INPUT__;
+  if (input && document.activeElement === input) return true;
+  return false;
+}
+
+function bindLivePollPause() {
+  if (window.__DASHBOARD_POLL_PAUSE_BOUND__) return;
+  window.__DASHBOARD_POLL_PAUSE_BOUND__ = true;
+  const input = document.getElementById('dashboard-search');
+  if (input) {
+    input.addEventListener('focus', () => {
+      livePollPaused = true;
+    });
+    input.addEventListener('blur', () => {
+      livePollPaused = false;
+    });
+  }
+}
+
 function startLiveRefresh(initialData) {
   const proto = location.protocol;
-  if (proto === 'file:') return;
-  if (proto !== 'http:' && proto !== 'https:') return;
-
-  lastSeenGenerated = initialData?.generated || initialData?.updated || null;
+  if (proto !== 'http:' && proto !== 'https:') {
+    /* file:// — žádný meta refresh ani poll (viz build_dashboard DASHBOARD_AUTO_REFRESH_SEC=0) */
+    return;
+  }
+  lastSeenFingerprint =
+    initialData?.fingerprint || initialData?.generated || initialData?.updated || null;
 
   const poll = async () => {
+    if (shouldPauseLivePoll()) return;
     try {
       const stampRes = await fetch('./dashboard-build-stamp.json?t=' + Date.now(), {
         cache: 'no-store',
       });
       if (!stampRes.ok) return;
       const stamp = await stampRes.json();
-      const gen = stamp.generated;
-      if (!gen || gen === lastSeenGenerated) return;
+      const fp = stamp.fingerprint || stamp.generated;
+      if (!fp || fp === lastSeenFingerprint) return;
       const dataRes = await fetch('./dashboard-data.json?t=' + Date.now(), { cache: 'no-store' });
       if (!dataRes.ok) return;
       const data = await dataRes.json();
-      lastSeenGenerated = data.generated || gen;
+      const nextFp = data.fingerprint || data.generated || fp;
+      if (nextFp === lastSeenFingerprint) return;
+      lastSeenFingerprint = nextFp;
       window.__DASHBOARD_DATA__ = data;
       renderAll(data, { preserveOpen: true });
     } catch {
@@ -610,10 +1057,14 @@ function startLiveRefresh(initialData) {
 async function main() {
   try {
     bindOpenStatePersistence();
+    bindDashboardSearch();
+    bindLivePollPause();
+    bindProjectSort(dashboardDataRef);
     const calPanel = document.querySelector('.cal-panel-details');
     if (calPanel && !calPanel.dataset.openKey) calPanel.dataset.openKey = 'cal';
     const data = await loadData();
     renderAll(data);
+    startCalendarOverdueSweep(dashboardDataRef);
     startLiveRefresh(data);
   } catch (e) {
     document.body.insertAdjacentHTML(

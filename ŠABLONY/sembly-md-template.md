@@ -55,4 +55,4 @@ Pokud Sembly API tvoje verze používá jiné field names, oprav v Code nodu (ma
 3. Uprav textové sekce podle potřeby
 4. Save & Activate
 
-Třídění do témat (`AGENDA/*.md`) řeší skill `agenda-triage` / `agenda-capture` — v .md už není automatický „suggested topic“.
+Třídění do témat (`02-PROJEKTY/*.md`) řeší skill `agenda-triage` / `agenda-capture` — v .md už není automatický „suggested topic“.

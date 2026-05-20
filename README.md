@@ -1,31 +1,33 @@
-# SECOND_BRAIN (repo)
+# SECOND_BRAIN — repo (automatizace)
 
-Tenké repo pro **automatizaci** kolem MrLUC vaultu — **ne** pro živé poznámky a úkoly.
+Git + tooling kolem Obsidian vaultu. **Vault (poznámky) není v kořeni repa.**
 
-## SSOT (jediný zdroj pravdy)
+## Obsidian vault (SSOT)
 
-**Obsidian vault MrLUC** (iCloud):
+```
+/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN
+```
 
-`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC`
-
-Struktura: `01-INBOX`, `02-PROJEKTY`, `03-AREAS`, `05-RESOURCES`, `07-ARCHIV`, `00-System`.
-
-Návod: v vaultu `00-System/Memory/jak-ctu-mrluc.md`.
-
-## Deprecated v tomto repu (needitovat jako agendu)
-
-| Složka | Stav |
+| Složka | Účel |
 |--------|------|
-| `AGENDA/` | Zastaralý Cowork mirror — projekty jsou v MrLUC `02-PROJEKTY/` |
-| `VÝSTUPY/` | Zastaralý mirror — výstupy jsou v `02-PROJEKTY/<slug>/` |
-| `INBOX/` | Zastaralý mirror — capture je v MrLUC `01-INBOX/` |
+| `Home.md`, `01-INBOX/`, `02-PROJEKTY/`, … | Second Brain v Obsidianu |
+| `vps/`, `scripts/`, `ŠABLONY/`, `.cursor/` | Jen v **kořeni repa** — neotevírat ve vaultu |
 
-## Co v repu používat
+Migrace / n8n: `OBSIDIAN/00-System/Memory/vault-gdrive-migration.md`
 
-- `vps/second-brain-hub/` — cron, dashboard build, deploy na Coolify
-- `scripts/` — lokální watch + serve dashboardu
-- `ŠABLONY/` — n8n workflow JSON, skills kopie
+**Mimo vault (repo kořen):** `ŠABLONY/` (n8n, skills). Kontext pro agenty: `OBSIDIAN/00-System/Memory/`.
 
-## Dashboard lokálně
+## Příkazy
 
-Viz [vps/second-brain-hub/README.md](vps/second-brain-hub/README.md).
+```bash
+export VAULT_PATH="/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"
+unset LEGACY_TASKS
+cd "/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/vps/second-brain-hub"
+python3 cron/sync_tasks_from_projekty.py --force && python3 cron/build_dashboard.py
+```
+
+Dashboard: `OBSIDIAN/00-System/Dashboard.html`
+
+## Git
+
+Viz `.gitignore` — generované soubory pod `OBSIDIAN/00-System/`.

@@ -2,7 +2,7 @@
 # Mac → coolify-dev: sync MrLUC vault (or subset) for cron jobs on VPS.
 set -euo pipefail
 
-VAULT_PATH="${VAULT_PATH:-$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC}"
+VAULT_PATH="${VAULT_PATH:-/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN}"
 VPS_HOST="${VPS_HOST:-coolify-dev}"
 REMOTE="${REMOTE:-/data/mrluc-second-brain}"
 SYNC_INBOX_ONLY="${SYNC_INBOX_ONLY:-0}"
