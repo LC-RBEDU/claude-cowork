@@ -25,7 +25,7 @@ INBOX root na Drive: [folder](https://drive.google.com/drive/u/0/folders/1ZaWrGl
 
 | Položka | Hodnota |
 |---------|---------|
-| Repozitář | `https://github.com/LC-RBEDU/claude-cowork` |
+| Repozitář | `https://github.com/LC-RBEDU/second-brain` |
 | Větev | **`main`** |
 | Base directory | `vps/second-brain-hub` |
 | Host | **coolify-dev** |
@@ -48,12 +48,19 @@ git push origin main
 
 ### Env (runtime)
 
+V Coolify UI u každé proměnné **Available at Runtime** (v DB `is_buildtime=false`). Build-time env se do cron kontejneru **nepropisují** — bez runtime flagu chybí `GOOGLE_*` / `CALENDAR_*` v `docker exec … env`.
+
 | Proměnná | Význam |
 |----------|--------|
 | `VAULT_PATH` | `/data/mrluc` |
 | `TZ` | `Europe/Prague` |
 | `DASHBOARD_JSON` | `/data/mrluc/00-System/dashboard-data.json` (na VPS, ne web) |
 | `LEGACY_TASKS` | `/data/mrluc/00-System/dashboard-tasks-source.json` |
+| `GOOGLE_DRIVE_SA_JSON` | Obsah SA klíče (stejný jako RB Universe worker) — alternativa `GOOGLE_SERVICE_ACCOUNT_JSON` |
+| `CALENDAR_USER_EMAIL` | `lukas@redbuttonedu.cz` (domain-wide delegation) |
+| `CALENDAR_DAYS_AHEAD` | `7` |
+
+Kalendář: `cron/fetch_calendar.py` → `00-System/calendar-events.json`; `build_dashboard.py` to načte při buildu.
 
 ## Vault na VPS (sync z Macu / Drive)
 
@@ -109,24 +116,46 @@ Schválení triáže: v Cursoru `schval pending triáž`.
 
 ## Dashboard lokálně (Mac)
 
+### Auto-refresh (doporučeno)
+
+1. **Watch** (rebuild při změně vaultu): `scripts/watch_dashboard.py` nebo `scripts/install-dashboard-watch.sh` (launchd).
+2. **Serve** (polling v prohlížeči): z kořene repa `scripts/serve_dashboard.sh` → [http://127.0.0.1:8765/Dashboard.html](http://127.0.0.1:8765/Dashboard.html)
+
+`build_dashboard.py` při každém buildu zapíše do vaultu `00-System/dashboard-data.json` a `dashboard-build-stamp.json`. UI každých ~10 s zkontroluje stamp; při novém `generated` načte JSON a překreslí panely (bez reloadu stránky).
+
+| Režim | Chování |
+|-------|---------|
+| **http://127.0.0.1:8765/Dashboard.html** | Live poll stamp + data (Cache-Control: no-cache) |
+| **file://** (dvojklik na `Dashboard.html`) | Meta refresh každých 30 s (`DASHBOARD_AUTO_REFRESH_SEC`); v hlavičce hint na `serve_dashboard.sh` |
+
+```bash
+# terminál 1 — rebuild při editaci vaultu
+export VAULT_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC"
+python3 scripts/watch_dashboard.py
+
+# terminál 2 — server pro live UI
+./scripts/serve_dashboard.sh
+```
+
+Volitelně: `DASHBOARD_POLL_SEC=5` při buildu (interval pollu v embedded JS).
+
+### Build jednorázově
+
 ```bash
 cd vps/second-brain-hub
-./scripts/build_dashboard_local.sh
-# → otevře http://127.0.0.1:8765 (python -m http.server v web/)
+export VAULT_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC"
+python3 cron/build_dashboard.py
+open "$VAULT_PATH/00-System/Dashboard.html"   # file:// + meta refresh 30 s
 ```
 
-Ručně:
+Nebo dev server nad `web/` (starší workflow):
 
 ```bash
-export VAULT_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/MrLUC"
-export DASHBOARD_JSON="$(pwd)/web/dashboard-data.json"
-python3 cron/build_dashboard.py
-cd web && python3 -m http.server 8765
+./scripts/build_dashboard_local.sh
+# → Dashboard.html ve vaultu + http://127.0.0.1:8765/ (složka web/)
 ```
 
-`file://` na `index.html` často nenačte `dashboard-data.json` (CORS) — použij `http.server`.
-
-Volitelně: data v `00-System/dashboard-data.json` v Obsidianu; UI jen pro přehled.
+`file://` bez serveru neumí `fetch` na JSON — pro okamžitý live refresh použij `serve_dashboard.sh`.
 
 ## Lokální Docker test (cron)
 
