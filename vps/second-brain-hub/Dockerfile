@@ -25,8 +25,6 @@ ENV VAULT_PATH=/data/mrluc \
     LEGACY_TASKS=/data/mrluc/00-System/dashboard-tasks-source.json \
     PYTHONUNBUFFERED=1
 
-# Cron-only container — no HTTP server exposed via Coolify/Traefik
-HEALTHCHECK --interval=60s --timeout=5s --start-period=20s --retries=3 \
-  CMD pgrep -x supercronic >/dev/null || exit 1
+# Cron-only — no HTTP; no HEALTHCHECK (avoids Coolify rollback when supercronic is PID 1)
 
 ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/entrypoint.sh"]
