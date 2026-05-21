@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
-Kalendář pro MrLUC dashboard — plný primary Google Calendar (na rozdíl od RB Universe DB,
-kde jsou jen schůzky s externími účastníky v Pipedrive).
+Kalendář pro MrLUC dashboard — plný primary Google Calendar (na rozdíl od
+RB Universe DB, kde jsou jen schůzky s externími účastníky v Pipedrive).
 
-Credentials (stejné jako RB Universe):
+**Calendar API credentials** (legacy SA + DWD, NE zaměňovat s Drive auth):
   GOOGLE_SERVICE_ACCOUNT_JSON / GOOGLE_DRIVE_SA_JSON — obsah SA klíče
-  GOOGLE_CALENDAR_CREDENTIALS nebo GOOGLE_CALENDAR_JSON — cesta k .json souboru SA
+  GOOGLE_CALENDAR_CREDENTIALS / GOOGLE_CALENDAR_JSON — cesta k .json souboru SA
 
-Uživatel (domain-wide delegation):
+Domain-Wide Delegation user (impersonation):
   CALENDAR_USER_EMAIL (výchozí lukas@redbuttonedu.cz)
 
-Výstup: VAULT/00-System/calendar-events.json
+**Drive output** (přes DriveVault, Phase 2 migrace):
+  VAULT_DRIVE_ID — folder ID OBSIDIAN rootu (1YTTs...)
+  GOOGLE_DRIVE_OAUTH_JSON — OAuth refresh token JSON (preferred)
+  GOOGLE_DRIVE_SA_JSON — SA JSON (fallback)
+
+Výstup: Drive `00-System/calendar-events.json`
 """
 from __future__ import annotations
 
@@ -23,23 +28,35 @@ from zoneinfo import ZoneInfo
 
 PRAGUE = ZoneInfo("Europe/Prague")
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
+OUT_REL = "00-System/calendar-events.json"
 
 _LIB = Path(__file__).resolve().parents[1] / "lib"
 if str(_LIB) not in sys.path:
     sys.path.insert(0, str(_LIB))
 
 from google_sa_json import parse_service_account_json  # noqa: E402
-
-VAULT = Path(
-    os.environ.get(
-        "VAULT_PATH",
-        Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"),
-    )
-)
-OUT = Path(os.environ.get("CALENDAR_EVENTS_JSON", VAULT / "00-System/calendar-events.json"))
+from drive_io import DriveVault, DriveNotFoundError, credentials_from_env  # noqa: E402
 
 
-def _read_sa_raw() -> str | None:
+_VAULT_SINGLETON: DriveVault | None = None
+
+
+def get_vault() -> DriveVault:
+    """Lazy-init DriveVault from env. Single instance per process."""
+    global _VAULT_SINGLETON
+    if _VAULT_SINGLETON is None:
+        root_id = (os.environ.get("VAULT_DRIVE_ID") or "").strip()
+        if not root_id:
+            raise RuntimeError(
+                "VAULT_DRIVE_ID env not set — Drive vault folder ID is required."
+            )
+        creds, _mode = credentials_from_env()
+        _VAULT_SINGLETON = DriveVault(root_id, credentials=creds)
+    return _VAULT_SINGLETON
+
+
+def _read_calendar_sa_raw() -> str | None:
+    """Read SA JSON for **Calendar API** (separate from Drive auth)."""
     for name in ("GOOGLE_SERVICE_ACCOUNT_JSON", "GOOGLE_DRIVE_SA_JSON"):
         raw = (os.environ.get(name) or "").strip()
         if raw:
@@ -68,7 +85,7 @@ def _days_ahead() -> int:
 
 
 def calendar_window() -> tuple[date, date]:
-    """Inclusive Prague date range: today .. today + (days_ahead - 1). days_ahead=2 → today + tomorrow."""
+    """Inclusive Prague date range: today .. today + (days_ahead - 1)."""
     today = datetime.now(PRAGUE).date()
     last = today + timedelta(days=_days_ahead() - 1)
     return today, last
@@ -112,20 +129,22 @@ def filter_calendar_payload(payload: dict) -> dict:
 
 
 def load_cached() -> dict | None:
-    if not OUT.exists():
-        return None
+    """Return previously written calendar JSON from Drive, or None."""
     try:
-        return json.loads(OUT.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        data, _meta = get_vault().read_json(OUT_REL)
+        return data if isinstance(data, dict) else None
+    except DriveNotFoundError:
+        return None
+    except Exception:
         return None
 
 
 def fetch_from_google() -> dict:
-    raw = _read_sa_raw()
+    raw = _read_calendar_sa_raw()
     if not raw:
         raise RuntimeError(
-            "Chybí SA credentials — nastav GOOGLE_SERVICE_ACCOUNT_JSON nebo GOOGLE_CALENDAR_CREDENTIALS "
-            "(stejný soubor jako v RB Universe / Coolify)"
+            "Chybí SA credentials pro Calendar — nastav GOOGLE_SERVICE_ACCOUNT_JSON "
+            "nebo GOOGLE_CALENDAR_CREDENTIALS (stejný soubor jako v RB Universe)."
         )
     try:
         from google.oauth2 import service_account
@@ -200,14 +219,13 @@ def fetch_from_google() -> dict:
 
 
 def refresh(force: bool = False) -> dict:
-    if not force and OUT.exists():
-        try:
-            cached = json.loads(OUT.read_text(encoding="utf-8"))
-            gen = cached.get("generated", "")[:10]
+    """Fetch + write to Drive. Reuses today's cache unless force=True."""
+    if not force:
+        cached = load_cached()
+        if cached:
+            gen = (cached.get("generated") or "")[:10]
             if gen == str(date.today()):
                 return filter_calendar_payload(cached)
-        except json.JSONDecodeError:
-            pass
     try:
         payload = fetch_from_google()
     except Exception as e:
@@ -225,8 +243,7 @@ def refresh(force: bool = False) -> dict:
             "fetchError": str(e),
         }
     payload = filter_calendar_payload(payload)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    get_vault().write_json(OUT_REL, payload)
     return payload
 
 
@@ -234,7 +251,7 @@ def main() -> None:
     force = "--force" in sys.argv
     data = refresh(force=force)
     n = len(data.get("events") or [])
-    print("calendar", OUT, "events=", n, "source=", data.get("source"))
+    print("calendar drive://", OUT_REL, "events=", n, "source=", data.get("source"))
     if data.get("fetchError"):
         print("warning:", data["fetchError"], file=sys.stderr)
 
