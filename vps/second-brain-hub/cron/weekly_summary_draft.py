@@ -1,25 +1,40 @@
 #!/usr/bin/env python3
-"""Sunday evening: factual weekly summary draft → 00-System/weekly/YYYY-Www-draft.md"""
+"""Sunday evening: factual weekly summary draft → 00-System/weekly/YYYY-Www-draft.md
+
+Phase 2 migrace — vault I/O přes lib/drive_io.DriveVault.
+"""
 from __future__ import annotations
 
-import json
 import os
+import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-VAULT = Path(
-    os.environ.get(
-        "VAULT_PATH",
-        Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"),
-    )
-)
-TASKS_JSON = Path(
-    os.environ.get("LEGACY_TASKS", VAULT / "00-System/dashboard-tasks-source.json")
-)
-WEEKLY_DIR = VAULT / "00-System/weekly"
+_LIB = Path(__file__).resolve().parents[1] / "lib"
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+
+from drive_io import DriveVault, DriveNotFoundError, credentials_from_env  # noqa: E402
+
 INBOX_SUBDIRS = ("slack", "sembly", "email", "daily")
+TASKS_REL = "00-System/dashboard-tasks-source.json"
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
+
+_VAULT_SINGLETON: DriveVault | None = None
+
+
+def get_vault() -> DriveVault:
+    global _VAULT_SINGLETON
+    if _VAULT_SINGLETON is None:
+        root_id = (os.environ.get("VAULT_DRIVE_ID") or "").strip()
+        if not root_id:
+            raise RuntimeError(
+                "VAULT_DRIVE_ID env not set — Drive vault folder ID is required."
+            )
+        creds, _mode = credentials_from_env()
+        _VAULT_SINGLETON = DriveVault(root_id, credentials=creds)
+    return _VAULT_SINGLETON
 
 
 def _today() -> date:
@@ -33,27 +48,32 @@ def iso_week_label(d: date | None = None) -> str:
 
 
 def count_inbox() -> int:
-    inbox = VAULT / "01-INBOX"
+    vault = get_vault()
     n = 0
     for sub in INBOX_SUBDIRS:
-        d = inbox / sub
-        if not d.is_dir():
+        try:
+            files = vault.list_dir(f"01-INBOX/{sub}", pattern="*.md")
+        except DriveNotFoundError:
             continue
-        for p in d.glob("*.md"):
-            if p.name.startswith("README") or p.name.startswith("._"):
+        for meta in files:
+            if meta.name.startswith("README") or meta.name.startswith("._"):
                 continue
-            head = p.read_text(encoding="utf-8", errors="replace")[:400]
-            if "ZPRACOVÁNO" in head.upper():
+            try:
+                head, _ = vault.read_text(meta.rel_path)
+            except DriveNotFoundError:
+                continue
+            if "ZPRACOVÁNO" in head[:400].upper():
                 continue
             n += 1
     return n
 
 
 def count_pending() -> int:
-    pending = VAULT / "00-System/Triage-Pending"
-    if not pending.is_dir():
+    try:
+        files = get_vault().list_dir("00-System/Triage-Pending", pattern="*.json")
+    except DriveNotFoundError:
         return 0
-    return len(list(pending.glob("*.json")))
+    return len(files)
 
 
 def ice_score(t: dict, today: date) -> float:
@@ -75,14 +95,19 @@ def ice_score(t: dict, today: date) -> float:
     return s
 
 
-def build_draft() -> Path:
-    WEEKLY_DIR.mkdir(parents=True, exist_ok=True)
+def build_draft() -> str:
+    vault = get_vault()
     week = iso_week_label()
-    out = WEEKLY_DIR / f"{week}-draft.md"
+    rel = f"00-System/weekly/{week}-draft.md"
     today = _today()
     week_start = today - timedelta(days=7)
 
-    src = json.loads(TASKS_JSON.read_text(encoding="utf-8")) if TASKS_JSON.exists() else {}
+    try:
+        src, _ = vault.read_json(TASKS_REL)
+        if not isinstance(src, dict):
+            src = {}
+    except DriveNotFoundError:
+        src = {}
     tasks = src.get("tasks", [])
     projects = src.get("projects", {})
     proj_order = src.get("proj_order", [])
@@ -197,13 +222,13 @@ _(doplň v chatu při schvalování — tento draft je jen fakta)_
 
 _Viz `00-System/Memory/procesy-mrluc.md`_
 """
-    out.write_text(body, encoding="utf-8")
-    return out
+    vault.write_text(rel, body)
+    return rel
 
 
 def main() -> None:
-    path = build_draft()
-    print("wrote", path)
+    rel = build_draft()
+    print("wrote drive://", rel)
 
 
 if __name__ == "__main__":

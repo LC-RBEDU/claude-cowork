@@ -1,23 +1,41 @@
 #!/usr/bin/env python3
-"""Sunday evening (+10 min): meta retro draft → 00-System/Memory/retro-YYYY-Www-draft.md"""
+"""Sunday evening (+10 min): meta retro draft → 00-System/Memory/retro-YYYY-Www-draft.md
+
+Phase 2 migrace — vault I/O přes lib/drive_io.DriveVault.
+"""
 from __future__ import annotations
 
-import json
 import os
-from datetime import date, datetime, timedelta
+import sys
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-VAULT = Path(
-    os.environ.get(
-        "VAULT_PATH",
-        Path("/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN"),
-    )
-)
-MEMORY_DIR = VAULT / "00-System/Memory"
-WEEKLY_DIR = VAULT / "00-System/weekly"
-TRIAGE_APPLIED = VAULT / "00-System/Triage-Applied"
+_LIB = Path(__file__).resolve().parents[1] / "lib"
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+
+from drive_io import DriveVault, DriveNotFoundError, credentials_from_env  # noqa: E402
+
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
+TRIAGE_APPLIED_REL = "00-System/Triage-Applied"
+WEEKLY_DIR_REL = "00-System/weekly"
+MEMORY_DIR_REL = "00-System/Memory"
+
+_VAULT_SINGLETON: DriveVault | None = None
+
+
+def get_vault() -> DriveVault:
+    global _VAULT_SINGLETON
+    if _VAULT_SINGLETON is None:
+        root_id = (os.environ.get("VAULT_DRIVE_ID") or "").strip()
+        if not root_id:
+            raise RuntimeError(
+                "VAULT_DRIVE_ID env not set — Drive vault folder ID is required."
+            )
+        creds, _mode = credentials_from_env()
+        _VAULT_SINGLETON = DriveVault(root_id, credentials=creds)
+    return _VAULT_SINGLETON
 
 
 def _today() -> date:
@@ -30,34 +48,37 @@ def iso_week_label(d: date | None = None) -> str:
     return f"{y}-W{w:02d}"
 
 
-def count_recent_applied(cutoff: float) -> int:
-    if not TRIAGE_APPLIED.is_dir():
-        return 0
+def count_recent_applied(cutoff: datetime) -> int:
+    """Count applied entries (.json + .md) modified at or after `cutoff` (UTC)."""
+    vault = get_vault()
+    cutoff_utc = cutoff.astimezone(timezone.utc)
     n = 0
-    for p in TRIAGE_APPLIED.glob("*.json"):
-        if p.stat().st_mtime >= cutoff:
-            n += 1
-    for p in TRIAGE_APPLIED.glob("*.md"):
-        if p.stat().st_mtime >= cutoff:
-            n += 1
+    for pattern in ("*.json", "*.md"):
+        try:
+            files = vault.list_dir(TRIAGE_APPLIED_REL, pattern=pattern)
+        except DriveNotFoundError:
+            continue
+        for meta in files:
+            if meta.modified_time >= cutoff_utc:
+                n += 1
     return n
 
 
 def weekly_draft_excerpt(week: str, max_lines: int = 25) -> str:
-    draft = WEEKLY_DIR / f"{week}-draft.md"
-    if not draft.is_file():
+    rel = f"{WEEKLY_DIR_REL}/{week}-draft.md"
+    try:
+        text, _ = get_vault().read_text(rel)
+    except DriveNotFoundError:
         return "_(weekly draft zatím neexistuje — spusť weekly_summary_draft.py)_"
-    lines = draft.read_text(encoding="utf-8").splitlines()
+    lines = text.splitlines()
     return "\n".join(lines[:max_lines]) + ("\n..." if len(lines) > max_lines else "")
 
 
-def build_draft() -> Path:
-    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+def build_draft() -> str:
     week = iso_week_label()
-    out = MEMORY_DIR / f"retro-{week}-draft.md"
-    today = _today()
-    cutoff_ts = (datetime.now(TZ) - timedelta(days=7)).timestamp()
-    applied = count_recent_applied(cutoff_ts)
+    rel = f"{MEMORY_DIR_REL}/retro-{week}-draft.md"
+    cutoff = datetime.now(TZ) - timedelta(days=7)
+    applied = count_recent_applied(cutoff)
 
     body = f"""# Retro spolupráce — draft {week}
 
@@ -95,13 +116,13 @@ def build_draft() -> Path:
 
 _Meta: vault, dashboard, triáž, skills, cron — ne obsah obchodních projektů._
 """
-    out.write_text(body, encoding="utf-8")
-    return out
+    get_vault().write_text(rel, body)
+    return rel
 
 
 def main() -> None:
-    path = build_draft()
-    print("wrote", path)
+    rel = build_draft()
+    print("wrote drive://", rel)
 
 
 if __name__ == "__main__":
