@@ -1,9 +1,8 @@
 # Second Brain — Europe/Prague (supercronic)
+# Stateless: vault I/O via Google Drive API (lib/drive_io.py).
+# VAULT_DRIVE_ID + GOOGLE_DRIVE_OAUTH_JSON + GOOGLE_DRIVE_SA_JSON injected by Coolify.
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
-VAULT_PATH=/data/mrluc
-DASHBOARD_JSON=/data/mrluc/00-System/dashboard-data.json
-LEGACY_TASKS=/data/mrluc/00-System/dashboard-tasks-source.json
 CALENDAR_DAYS_AHEAD=2
 TZ=Europe/Prague
 

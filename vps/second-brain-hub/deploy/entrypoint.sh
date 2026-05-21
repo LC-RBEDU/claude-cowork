@@ -1,18 +1,12 @@
 #!/bin/sh
 set -eu
 
-mkdir -p /data/mrluc/01-INBOX/slack \
-  /data/mrluc/01-INBOX/sembly \
-  /data/mrluc/01-INBOX/email \
-  /data/mrluc/01-INBOX/daily \
-  /data/mrluc/00-System/Triage-Pending \
-  /data/mrluc/00-System/Triage-Applied \
-  /data/mrluc/02-PROJEKTY \
-  /var/log/second-brain
+mkdir -p /var/log/second-brain
 
-if [ -f "${LEGACY_TASKS}" ] || [ -d "${VAULT_PATH}/02-PROJEKTY" ]; then
-  python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1 || true
-fi
+# Initial dashboard build on container start. Stateless — reads from Drive,
+# writes to Drive. Tolerated to fail (e.g. if Drive creds aren't yet plumbed)
+# so cron keeps running and the next scheduled build retries.
+python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1 || true
 
 echo "second-brain-hub: supercronic only (no public HTTP)"
 exec /usr/local/bin/supercronic -passthrough-logs /app/crontab

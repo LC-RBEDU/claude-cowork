@@ -22,12 +22,15 @@ COPY deploy/entrypoint.sh /entrypoint.sh
 
 RUN chmod 0644 /app/crontab \
     && chmod +x /entrypoint.sh \
-    && mkdir -p /data/mrluc /var/log/second-brain
+    && mkdir -p /var/log/second-brain
 
-ENV VAULT_PATH=/data/mrluc \
-    TZ=Europe/Prague \
-    DASHBOARD_JSON=/data/mrluc/00-System/dashboard-data.json \
-    LEGACY_TASKS=/data/mrluc/00-System/dashboard-tasks-source.json \
+# Stateless: no /data/mrluc volume. Vault I/O is via Google Drive API (lib/drive_io.py).
+# Required runtime env (set in Coolify):
+#   VAULT_DRIVE_ID            = OBSIDIAN folder ID in Drive
+#   GOOGLE_DRIVE_OAUTH_JSON   = OAuth user creds (refresh token) for Drive API
+#   GOOGLE_DRIVE_SA_JSON      = Service Account JSON for Calendar API (DWD)
+#   CALENDAR_USER_EMAIL       = subject email for SA delegation
+ENV TZ=Europe/Prague \
     PYTHONUNBUFFERED=1
 
 # Cron-only — no HTTP; no HEALTHCHECK (avoids Coolify rollback when supercronic is PID 1)
