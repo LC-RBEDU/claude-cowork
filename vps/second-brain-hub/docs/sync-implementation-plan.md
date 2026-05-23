@@ -1,6 +1,6 @@
 # Implementační plán — migrace na Drive API
 
-> **Status (2026-05-23):** Phase **0–3** hotové. **Coolify Redeploy hotov** — běží image **`881b458`** (`140b40c7afe90d0827d8489a-012514625772`, supercronic OK). Phase **4.1 částečně** — triage + build + hourly cron ověřeno; **`edu_news_refresh --dry-run` padá** (`NameError: key` v `collect_hotovo_candidates`, ř. 203 — chybí `f"{slug}:{tid}"`). Phase **4.2–4.3** čekají na čas / E2E.
+> **Status (2026-05-23):** Phase **0–3** hotové. **Coolify Redeploy hotov** — běží image **`881b458`**. Phase **4.1 částečně** — triage + build + hourly cron ověřeno; **`edu_news_refresh` NameError (`key`) opraven v main** — po redeploy znovu `edu_news_refresh --dry-run` pro uzavření 4.1. Phase **4.2–4.3** čekají na čas / E2E.
 >
 > **Phase 4.1 smoke (2026-05-23, image `881b458`, po redeploy):**
 > - `triage_run` OK (`no inbox files to triage`)

@@ -50,6 +50,38 @@ def test_progress_baseline_skips_unchanged():
     assert out == []
 
 
+def test_collect_hotovo_candidates_key_format(monkeypatch):
+    hub_text = """# Téma: Finance hub
+**Slug**: `finance`
+
+## Recently moved to HOTOVO
+
+### FIN1 — Overdue faktury ✅
+_(2026-05-20)_
+První řádek shrnutí.
+"""
+
+    class _Meta:
+        def __init__(self, name: str):
+            self.name = name
+            self.rel_path = f"02-PROJEKTY/{name}"
+
+    class _FakeVault:
+        def list_dir(self, path: str, pattern: str = "*"):
+            assert path == "02-PROJEKTY"
+            return [_Meta("finance.md")]
+
+        def read_text(self, rel_path: str):
+            return hub_text, None
+
+    monkeypatch.setattr(mod, "get_vault", lambda: _FakeVault())
+    out = mod.collect_hotovo_candidates(date(2026, 5, 1))
+    assert len(out) == 1
+    assert out[0]["key"] == "finance:FIN1"
+    assert out[0]["taskId"] == "FIN1"
+    assert out[0]["proj"] == "finance"
+
+
 def test_progress_baseline_allows_new_steps():
     tasks = [
         {

@@ -198,6 +198,7 @@ def collect_hotovo_candidates(cutoff: date) -> list[dict]:
             one_liner = re.sub(r"_\([^)]*\)_", "", one_liner).strip()[:200]
             if not one_liner:
                 one_liner = title
+            key = f"{slug}:{tid}"
             out.append(
                 {
                     "key": key,
