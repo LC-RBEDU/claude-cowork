@@ -29,13 +29,26 @@ if str(_CRON) not in sys.path:
     sys.path.insert(0, str(_CRON))
 
 from drive_io import DriveVault, DriveNotFoundError, credentials_from_env  # noqa: E402
-from triage_commitments import extract_commitments, is_sent_email  # noqa: E402
+from triage_commitments import (  # noqa: E402
+    extract_commitments,
+    is_sent_email,
+    normalize_proposal,
+    sent_archive_only_proposal,
+    sent_business_action_proposal,
+)
 
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 
 INBOX_SUBDIRS = ("slack", "sembly", "email", "daily")
 
+PROPOSAL_TYPE_LABELS = {
+    "add_task": "Vytažení úkolu",
+    "update_task": "Změna stavu úkolu / projektu",
+    "archive_only": "Přesun do HOTOVO (bez nového úkolu)",
+}
+
 SLUG_HINTS = [
+    ("ninjabot", "pipedrive-a-dalsi-nastroje"),
     ("rb-universe", "rb-universe-development"),
     ("universe", "rb-universe-development"),
     ("pipedrive", "pipedrive-a-dalsi-nastroje"),
@@ -176,30 +189,44 @@ def main() -> None:
     for rel, body in items:
         if is_sent_email(rel, body):
             sent = extract_commitments(rel, body, guess_proj=guess_proj)
-            if not sent:
-                print("skip sent email without commitments:", rel)
-                continue
-            for pr in sent:
-                pid += 1
-                pr = dict(pr)
-                pr["id"] = f"p{pid}"
-                proposals.append(pr)
+            if sent:
+                for pr in sent:
+                    pid += 1
+                    pr = dict(pr)
+                    pr["id"] = f"p{pid}"
+                    proposals.append(pr)
+            else:
+                biz = sent_business_action_proposal(rel, body, guess_proj=guess_proj)
+                if biz:
+                    pid += 1
+                    pr = dict(biz)
+                    pr["id"] = f"p{pid}"
+                    proposals.append(pr)
+                    print("sent business-action proposal:", rel)
+                else:
+                    pid += 1
+                    pr = sent_archive_only_proposal(rel, body)
+                    pr["id"] = f"p{pid}"
+                    proposals.append(pr)
+                    print("sent archive_only proposal:", rel)
             continue
 
         name = rel.rsplit("/", 1)[-1]
         pid += 1
         proposals.append(
-            {
-                "id": f"p{pid}",
-                "action": "add_task",
-                "title": title_from_file(name, body),
-                "suggestedProj": guess_proj(body, rel),
-                "priority": "Next",
-                "ice": [7, 6, 5],
-                "notes": "",
-                "subtasks": [],
-                "sourceFile": rel,
-            }
+            normalize_proposal(
+                {
+                    "id": f"p{pid}",
+                    "action": "add_task",
+                    "title": title_from_file(name, body),
+                    "suggestedProj": guess_proj(body, rel),
+                    "priority": "Next",
+                    "ice": [7, 6, 5],
+                    "notes": "",
+                    "subtasks": [],
+                    "sourceFile": rel,
+                }
+            )
         )
 
     if not proposals:
@@ -220,17 +247,31 @@ def main() -> None:
     lines = [
         f"# Triage batch {batch_id}\n",
         f"**Počet návrhů:** {len(proposals)}\n",
-        "| ID | Návrh | Projekt | Typ |",
-        "|----|-------|---------|-----|",
+        "## Návrhy\n",
     ]
     for pr in proposals:
+        ptype = pr.get("proposalType") or "add_task"
+        label = PROPOSAL_TYPE_LABELS.get(ptype, ptype)
         kind = pr.get("kind") or "inbox"
         conf = pr.get("confidence")
-        conf_s = f" ({conf:.2f})" if isinstance(conf, (int, float)) else ""
-        lines.append(
-            f"| {pr['id']} | {pr['title'][:60]} | {pr['suggestedProj']} | {kind}{conf_s} |"
+        conf_s = f", confidence {conf:.2f}" if isinstance(conf, (int, float)) else ""
+        archive = pr.get("archiveAfterApply", True)
+        arch_s = "ano" if archive else "ne"
+        proj = pr.get("suggestedProj") or "—"
+        src = pr.get("sourceFile", "")
+        lines.extend(
+            [
+                f"### {pr['id']} — `{src}`",
+                f"- **Doporučení:** {label} (`{ptype}`)",
+                f"- **Název:** {pr.get('title', '')[:120]}",
+                f"- **Projekt:** {proj}",
+                f"- **Priorita:** {pr.get('priority') or '—'}",
+                f"- **Podtyp:** {kind}{conf_s}",
+                f"- **Po schválení archivovat zdroj:** {arch_s}",
+                "",
+            ]
         )
-    lines.append("\nSchválení: v Cursoru `schval pending triáž`\n")
+    lines.append("Schválení: v Cursoru `schval pending triáž` / `apply batch`\n")
     vault.write_text(summary_rel, "\n".join(lines))
     print("wrote drive://", out_rel, "proposals=", len(proposals))
 

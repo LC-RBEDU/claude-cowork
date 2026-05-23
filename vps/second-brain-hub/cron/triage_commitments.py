@@ -136,18 +136,20 @@ def heuristic_extract(
         notes_parts.append(f'citace: "{snippet}"')
 
         proposals.append(
-            {
-                "action": "add_task",
-                "kind": "commitment",
-                "confidence": confidence,
-                "title": title,
-                "suggestedProj": guess_proj(text + " " + rel_path, rel_path),
-                "priority": "Next",
-                "ice": [7, 6, 5],
-                "notes": " — ".join(notes_parts),
-                "subtasks": [],
-                "sourceFile": rel_path,
-            }
+            normalize_proposal(
+                {
+                    "action": "add_task",
+                    "kind": "commitment",
+                    "confidence": confidence,
+                    "title": title,
+                    "suggestedProj": guess_proj(text + " " + rel_path, rel_path),
+                    "priority": "Next",
+                    "ice": [7, 6, 5],
+                    "notes": " — ".join(notes_parts),
+                    "subtasks": [],
+                    "sourceFile": rel_path,
+                }
+            )
         )
 
     return proposals
@@ -260,6 +262,99 @@ def llm_extract(
     return proposals
 
 
+# Business closure / contract termination in sent mail (no commitment verb).
+_SENT_BUSINESS_ACTION_RE = re.compile(
+    r"(?:"
+    r"ukonč\w*|zrušit\s+smlouv\w*|vypověd\w*|ukončení\s+služeb|"
+    r"nevyužív\w*|zrušení\s+služeb"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def sent_business_action_proposal(
+    rel_path: str,
+    body: str,
+    *,
+    guess_proj: Callable[[str, str], str],
+) -> dict | None:
+    """Suggest add_task when sent mail implies contract/service closure."""
+    if not is_sent_email(rel_path, body):
+        return None
+    text = email_body_text(body)
+    if not text or not _SENT_BUSINESS_ACTION_RE.search(text):
+        return None
+
+    fm = parse_frontmatter(body)
+    subject = fm.get("subject", "")
+    name = rel_path.rsplit("/", 1)[-1]
+    low = (text + " " + subject + " " + rel_path).lower()
+
+    if "ninjabot" in low:
+        title = "Ukončit Ninjabot smlouvu"
+        proj = "pipedrive-a-dalsi-nastroje"
+    else:
+        title = (subject or "Ukončit službu / smlouvu (odeslaný e-mail)")[:120]
+        proj = guess_proj(text + " " + rel_path, rel_path)
+
+    notes_parts = [f"Odeslaný e-mail `{name}` (bez závazkového slovesa)"]
+    if subject:
+        notes_parts.append(f"předmět „{subject[:80]}“")
+    snippet = re.sub(r"\s+", " ", text[:200]).strip()
+    if snippet:
+        notes_parts.append(f'kontext: "{snippet}"')
+
+    return {
+        "action": "add_task",
+        "proposalType": "add_task",
+        "kind": "sent_closure",
+        "confidence": 0.5,
+        "title": title,
+        "suggestedProj": proj,
+        "priority": "Waiting",
+        "ice": [7, 8, 6],
+        "notes": " — ".join(notes_parts),
+        "subtasks": [],
+        "sourceFile": rel_path,
+        "archiveAfterApply": True,
+    }
+
+
+def sent_archive_only_proposal(rel_path: str, body: str) -> dict:
+    """Sent mail with no commitments and no business-action heuristic."""
+    name = rel_path.rsplit("/", 1)[-1]
+    fm = parse_frontmatter(body)
+    subject = fm.get("subject", "") or name
+    return {
+        "action": "archive_only",
+        "proposalType": "archive_only",
+        "kind": "sent_info",
+        "title": f"Archivovat odeslaný e-mail: {subject[:80]}",
+        "suggestedProj": "",
+        "priority": "",
+        "ice": [],
+        "notes": f"Odeslaný e-mail bez závazku — po schválení přesunout do HOTOVO (`{name}`).",
+        "subtasks": [],
+        "sourceFile": rel_path,
+        "archiveAfterApply": True,
+    }
+
+
+def normalize_proposal(pr: dict) -> dict:
+    """Ensure proposalType, archiveAfterApply, and action alignment."""
+    out = dict(pr)
+    action = str(out.get("action") or "add_task")
+    if action in ("add_note_to_task", "commitment_watch"):
+        out.setdefault("proposalType", "update_task")
+    elif action == "archive_only":
+        out.setdefault("proposalType", "archive_only")
+    else:
+        out.setdefault("proposalType", "add_task")
+    if "archiveAfterApply" not in out:
+        out["archiveAfterApply"] = True
+    return out
+
+
 def extract_commitments(
     rel_path: str,
     body: str,
@@ -271,5 +366,6 @@ def extract_commitments(
         return []
     llm = llm_extract(rel_path, body, guess_proj=guess_proj)
     if llm is not None:
-        return llm
-    return heuristic_extract(rel_path, body, guess_proj=guess_proj)
+        return [normalize_proposal(p) for p in llm]
+    raw = heuristic_extract(rel_path, body, guess_proj=guess_proj)
+    return [normalize_proposal(p) for p in raw]

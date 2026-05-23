@@ -1,10 +1,10 @@
 # Implementační plán — migrace na Drive API
 
-> **Status (2026-05-23):** Phase **0–3** hotové. **Git `29863b2`** na `main` (hub fixy) — **Coolify Auto Deploy zatím nespustil** (kontejner stále `29df869`). **Ruční Redeploy** v Coolify UI → pak znovu Phase 4.1 smoke na image s `29863b2`.
+> **Status (2026-05-23):** Phase **0–3** hotové v kódu. Phase **4.1 částečně** (smoke na starém image `29df869`). **Coolify Redeploy** nutný pro image s commity po `29df869`. **Git `30a9d18`** na `main`.
 >
 > **Phase 4.1 smoke (2026-05-23, image `29df869`):** `triage_run` OK (`proposals=1`); `build_dashboard` OK (`inbox=1 pending=3`); logy bez tracebacku. `edu_news_refresh --dry-run` na starém image — **20 signálů vč. HOTOVO** (fix `progressBaseline` v kontejneru ještě není).
 >
-> **Hub opravy v `29863b2`:** `edu_news_refresh` — `cycleStartedAt` + `progressBaseline`; `triage_run` — skip INBOX v open pending; `sync_tasks` — prune orphan projects.
+> **Nové v repu (po `29863b2`):** sent-email fallback (`proposalType`, `archive_only`, business-action heuristika); summary batch v češtině; hourly `build_dashboard` v `deploy/crontab` (8–21, `:35`); README → Drive API architektura.
 
 **Aktuální vault root:** `1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz-` (`SECOND_BRAIN/OBSIDIAN/` na lukas@redbuttonedu.cz).
 
@@ -119,7 +119,14 @@ Skript: `auto-detect creds (oauth/sa)` → root stat → list `01-INBOX` → cou
 
 **Checkpoint:** ✅ unit testy zelené, smoke test prošel z Macu (15:55). Smoke z kontejneru — provedeme až po Phase 3 deploy.
 
-## Phase 2 — Migrace cron skriptů (per skript, samostatné commity)
+## Phase 2 — Migrace cron skriptů ✅ HOTOVO
+
+- [x] **2a** `cron/fetch_calendar.py` — `vault.write_json("00-System/calendar-events.json", …)`
+- [x] **2b** `cron/triage_run.py` — INBOX scan, Triage-Pending batch + summary (Drive API); sent fallback + `proposalType` (2026-05-23)
+- [x] **2c** `cron/sync_tasks_from_projekty.py` — `02-PROJEKTY/*.md` → `dashboard-tasks-source.json`; orphan prune
+- [x] **2d** `cron/build_dashboard.py` — full migrace vč. CAS reactivate Waiting→ASAP, calendar modul, Triage-Applied archive
+- [x] **2e** `cron/edu_news_refresh.py` — OPS2, CAS na `operations.md`, `cycleStartedAt` + `progressBaseline`
+- [x] **2f** `cron/weekly_summary_draft.py`, `cron/retro_draft.py` — drafty do `00-System/weekly/` a `Memory/`
 
 Vždy stejný pattern:
 
@@ -189,7 +196,12 @@ Největší migrace.
 
 **Checkpoint po každém 2x:** lokální smoke z Macu (`GOOGLE_DRIVE_SA_JSON=... VAULT_DRIVE_ID=... python3 cron/<skript>.py`), výstup vidíme přes Drive UI nebo Drive Desktop mirror.
 
-## Phase 3 — Docker, Coolify, deployment
+## Phase 3 — Docker, Coolify, deployment ✅ HOTOVO
+
+- [x] **3.1** `Dockerfile` — stateless, bez `VAULT_PATH` / `/data/mrluc`
+- [x] **3.2** `deploy/crontab` — `VAULT_DRIVE_ID`, hourly `build_dashboard` **8–21** (`:35`, log `build-hourly.log`)
+- [x] **3.3** `config.example.env` — `VAULT_DRIVE_ID`, `GOOGLE_DRIVE_OAUTH_JSON`, calendar env
+- [x] **3.4** Coolify env — `VAULT_DRIVE_ID` + `GOOGLE_DRIVE_OAUTH_JSON` nastaveno (volume mount zatím kvůli Phase 5 safety net)
 
 ### 3.1 `Dockerfile`
 
@@ -237,6 +249,10 @@ Git push `main` → Auto Deploy stáhne nový image.
 
 ## Phase 4 — Smoke a 24h cyklus
 
+- [~] **4.1** Manuální smoke v kontejneru — **částečně hotovo** na image `29df869`; **vyžaduje Coolify Redeploy** na image s commity po `29df869` (sent fallback, `progressBaseline`, hourly cron)
+- [ ] **4.2** Sledování cron logů 24–48 h (Po–Pá triage 7/14/20, build +5 min, hourly build 8–21)
+- [ ] **4.3** End-to-end: drop INBOX → batch → `agenda-triage` → hub + archiv → dashboard
+
 ### 4.1 Manuální spuštění v kontejneru
 
 ```bash
@@ -270,13 +286,13 @@ Sledovat 24-48h. Kontrola:
 4. `agenda-triage` v Cursoru → schválit batch → změny v `02-PROJEKTY/...md`
 5. Další cron build → dashboard aktualizovaný, archivovaný soubor v `07-ARCHIV/inbox-processed/...`
 
-## Phase 5 — Cleanup
+## Phase 5 — Cleanup (odloženo do stabilního týdne)
 
-- [ ] **5.1** smazat `vps/second-brain-hub/scripts/sync_vault_to_vps.sh`
-- [ ] **5.2** odstranit volume mount `/data/mrluc-second-brain → /data/mrluc` v Coolify
-- [ ] **5.3** smazat data `/data/mrluc-second-brain` na coolify-dev (`sudo rm -rf`)
-- [ ] **5.4** README — přepsat na Drive API architekturu, odstranit rsync sekce
-- [ ] **5.5** zkontrolovat `ŠABLONY/n8n/*.json` — INBOX root ID `1ZaWrGl9...` může být outdated, pokud n8n teď drop do `1zhUAm26...`, aktualizovat templates
+- [ ] **5.1** smazat `vps/second-brain-hub/scripts/sync_vault_to_vps.sh` — *deferred until 2026-05-30*
+- [ ] **5.2** odstranit volume mount `/data/mrluc-second-brain → /data/mrluc` v Coolify — *deferred until 2026-05-30*
+- [ ] **5.3** smazat data `/data/mrluc-second-brain` na coolify-dev (`sudo rm -rf`) — *deferred until 2026-05-30*
+- [x] **5.4** README — přepsáno na Drive API architekturu (2026-05-23)
+- [ ] **5.5** zkontrolovat `ŠABLONY/n8n/*.json` — INBOX root ID může být outdated — *deferred until 2026-05-30*
 
 ## Rollback
 
