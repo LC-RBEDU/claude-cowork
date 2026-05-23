@@ -1,6 +1,6 @@
 # Implementační plán — migrace na Drive API
 
-> **Status (2026-05-23):** Phase **0–3** hotové v kódu. Phase **4.1 částečně** (smoke na starém image `29df869`). **Coolify Redeploy** nutný pro image s commity po `29df869`. **Git `30a9d18`** na `main`.
+> **Status (2026-05-23):** Phase **0–3** hotové v kódu. Phase **4.1 částečně** (smoke na starém image `29df869`). **Coolify Redeploy** nutný pro image s commity po `29df869`. **Git `20cb834`** na `main`.
 >
 > **Phase 4.1 smoke (2026-05-23, image `29df869`):** `triage_run` OK (`proposals=1`); `build_dashboard` OK (`inbox=1 pending=3`); logy bez tracebacku. `edu_news_refresh --dry-run` na starém image — **20 signálů vč. HOTOVO** (fix `progressBaseline` v kontejneru ještě není).
 >
