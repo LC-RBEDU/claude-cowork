@@ -74,6 +74,7 @@ Typy výstupů a kde je uložit:
 |-----|--------|-------------|
 | Dokument (zpráva, analýza, memo) | `.docx` | `02-PROJEKTY/<slug>/` |
 | Mindmapa / diagram | `.mermaid` / HTML | `02-PROJEKTY/<slug>/` |
+| Proces pro Architekta | `.md` (konvence odrážek) | `02-PROJEKTY/firemni-procesy/procesy/` — skill `agenda-proces` |
 | Kalkulace / tabulka | `.xlsx` | `02-PROJEKTY/<slug>/` |
 | Strukturovaná poznámka | `.md` | `02-PROJEKTY/<slug>/` |
 | Skript | `.py` / `.js` | `02-PROJEKTY/<slug>/` |

@@ -33,6 +33,8 @@ from drive_io import (  # noqa: E402
 
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 INBOX_SUBDIRS = ("slack", "sembly", "email", "daily")
+# Keep in sync with triage_run._HEADER_PROBE_BYTES / ZPRACOVÁNO skip
+_INBOX_HEADER_PROBE_BYTES = 400
 
 # Keep in sync with web/app.js PROJECT_PALETTE
 PROJECT_PALETTE = [
@@ -142,6 +144,8 @@ def list_inbox_items() -> list[dict]:
             try:
                 body, _ = vault.read_text(meta.rel_path)
             except DriveNotFoundError:
+                continue
+            if "ZPRACOVÁNO" in body[:_INBOX_HEADER_PROBE_BYTES]:
                 continue
             items.append(
                 {

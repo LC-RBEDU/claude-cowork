@@ -8,8 +8,10 @@ TZ=Europe/Prague
 
 # Po-Pa: triage 7:00, 14:00, 20:00
 0 7,14,20 * * 1-5 /usr/local/bin/python3 /app/cron/triage_run.py >> /var/log/second-brain/triage.log 2>&1
-# Po-Pa: rebuild +5 min
+# Po-Pa: rebuild +5 min (po triage)
 5 7,14,20 * * 1-5 /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
+# Denně 8–21: inbox badge + pending (n8n capture mezi triage sloty; So–Ne bez odpoledního triage)
+35 8-21 * * * /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build-hourly.log 2>&1
 # Po-Pa: edu news 7:10
 10 7 * * 1-5 /usr/local/bin/python3 /app/cron/edu_news_refresh.py >> /var/log/second-brain/edu.log 2>&1
 
