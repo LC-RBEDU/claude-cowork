@@ -60,10 +60,149 @@ SLUG_HINTS = [
     ("operations", "operations"),
     ("odyssey", "ma-odyssey"),
     ("potlesk", "kratky-potlesk"),
-    ("inspirace", "obecna-inspirace"),
     ("exponential", "exponential-summit"),
     ("vibe", "vibe-coding"),
+    ("allfred", "allfred"),
+    ("alfred", "allfred"),
+    ("owners", "owners"),
+    ("network", "rb-network"),
+    ("sales", "sales-a-business-development"),
+    ("osobni", "osobni"),
+    ("osobní", "osobni"),
 ]
+
+MAPPING_REL = "00-System/migration-mapping.json"
+
+_MAPPING_CACHE: dict[str, dict] | None = None
+
+
+def load_mapping(vault: DriveVault) -> dict[str, dict]:
+    """Load slug → {hub_filename, id_prefix, area} from vault.
+
+    Used to generate target_path + frontmatter for v2 file-per-task proposals.
+    """
+    global _MAPPING_CACHE
+    if _MAPPING_CACHE is not None:
+        return _MAPPING_CACHE
+    try:
+        data, _ = vault.read_json(MAPPING_REL)
+    except DriveNotFoundError:
+        _MAPPING_CACHE = {}
+        return _MAPPING_CACHE
+    out: dict[str, dict] = {}
+    if isinstance(data, list):
+        for entry in data:
+            slug = (entry.get("slug") or "").strip()
+            if slug:
+                out[slug] = entry
+    _MAPPING_CACHE = out
+    return out
+
+
+def _slugify_filename(text: str, max_len: int = 50) -> str:
+    """Filename slugify (latin only, kebab-case). See 00-System/Templates/filename-normalization.md."""
+    try:
+        from unidecode import unidecode  # type: ignore
+        s = unidecode(text or "")
+    except Exception:
+        s = text or ""
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    s = re.sub(r"\s+", "-", s.strip())
+    if len(s) > max_len:
+        cut = s[:max_len].rsplit("-", 1)[0]
+        s = cut if cut else s[:max_len]
+    return s.strip("-") or "task"
+
+
+def next_id_for_slug(vault: DriveVault, slug: str, prefix: str) -> str:
+    """Scan tasks/ + 07-ARCHIV/tasks-done/<slug>/ for max ID with prefix, return prefix+(max+1)."""
+    pattern = re.compile(rf"^{re.escape(prefix)}(\d+)[a-z]?")
+    max_n = 0
+    for rel in (
+        f"02-PROJEKTY/{slug}/tasks",
+        f"07-ARCHIV/tasks-done/{slug}",
+    ):
+        try:
+            files = vault.list_dir(rel, pattern="*.md")
+        except DriveNotFoundError:
+            continue
+        for meta in files:
+            m = pattern.match(meta.name)
+            if m:
+                try:
+                    n = int(m.group(1))
+                    if n > max_n:
+                        max_n = n
+                except ValueError:
+                    pass
+    return f"{prefix}{max_n + 1}"
+
+
+def build_v2_proposal(
+    vault: DriveVault,
+    rel: str,
+    body: str,
+    title: str,
+    slug: str,
+    priority: str = "Next",
+    ice: tuple[int, int, int] = (7, 6, 5),
+    source: str = "",
+    deadline: str | None = None,
+    wait_until: str | None = None,
+) -> dict:
+    """Build a v2 add_task proposal with target_path, frontmatter, body."""
+    mapping = load_mapping(vault)
+    entry = mapping.get(slug, {})
+    prefix = entry.get("id_prefix") or _default_prefix_for(slug)
+    new_id = next_id_for_slug(vault, slug, prefix)
+    filename = f"{new_id}-{_slugify_filename(title)}.md"
+    target_path = f"02-PROJEKTY/{slug}/tasks/{filename}"
+
+    body_md = (
+        f"# {new_id} — {title}\n\n"
+        f"**Z:** {source or rel}\n\n"
+        f"## Operativní kroky\n"
+        f"- [ ] (doplň při schválení)\n\n"
+        f"## Poznámky / log\n"
+        f"- {datetime.now(TZ).date().isoformat()}: Vytvořeno z INBOX `{rel}` (triage_run.py)\n"
+    )
+
+    return {
+        "proposalType": "add_task",
+        "target_path": target_path,
+        "frontmatter": {
+            "id": new_id,
+            "type": "task",
+            "project": f"[[{slug}]]",
+            "slug": slug,
+            "status": priority,
+            "ice_i": ice[0],
+            "ice_c": ice[1],
+            "ice_e": ice[2],
+            "deadline": deadline,
+            "waitUntil": wait_until,
+            "materials": [],
+            "source": source or "",
+            "blocked_by": [],
+        },
+        "body": body_md,
+        "title": title,
+        "suggestedProj": slug,
+        "priority": priority,
+        "ice": list(ice),
+        "sourceFile": rel,
+        "archiveAfterApply": True,
+        "kind": "inbox",
+    }
+
+
+def _default_prefix_for(slug: str) -> str:
+    """Fallback ID prefix from slug acronym."""
+    parts = re.split(r"[-_]", slug)
+    if len(parts) == 1:
+        return slug[:2].upper() or "X"
+    return "".join(p[0].upper() for p in parts[:3] if p)
 
 # How much of each file to read when checking the ZPRACOVÁNO marker.
 _HEADER_PROBE_BYTES = 400
@@ -213,21 +352,34 @@ def main() -> None:
 
         name = rel.rsplit("/", 1)[-1]
         pid += 1
-        proposals.append(
-            normalize_proposal(
-                {
-                    "id": f"p{pid}",
-                    "action": "add_task",
-                    "title": title_from_file(name, body),
-                    "suggestedProj": guess_proj(body, rel),
-                    "priority": "Next",
-                    "ice": [7, 6, 5],
-                    "notes": "",
-                    "subtasks": [],
-                    "sourceFile": rel,
-                }
-            )
+        title = title_from_file(name, body)
+        slug = guess_proj(body, rel)
+        v2_proposal = build_v2_proposal(
+            vault=vault,
+            rel=rel,
+            body=body,
+            title=title,
+            slug=slug,
+            priority="Next",
+            ice=(7, 6, 5),
+            source=rel,
         )
+        normalized = normalize_proposal(
+            {
+                "id": f"p{pid}",
+                "action": "add_task",
+                "title": title,
+                "suggestedProj": slug,
+                "priority": "Next",
+                "ice": [7, 6, 5],
+                "notes": "",
+                "subtasks": [],
+                "sourceFile": rel,
+            }
+        )
+        normalized.update(v2_proposal)
+        normalized["id"] = f"p{pid}"
+        proposals.append(normalized)
 
     if not proposals:
         print("no proposals after filtering (sent emails may lack commitments)")
@@ -259,12 +411,14 @@ def main() -> None:
         arch_s = "ano" if archive else "ne"
         proj = pr.get("suggestedProj") or "—"
         src = pr.get("sourceFile", "")
+        target = pr.get("target_path") or "—"
         lines.extend(
             [
                 f"### {pr['id']} — `{src}`",
                 f"- **Doporučení:** {label} (`{ptype}`)",
                 f"- **Název:** {pr.get('title', '')[:120]}",
                 f"- **Projekt:** {proj}",
+                f"- **Cíl (v2):** `{target}`",
                 f"- **Priorita:** {pr.get('priority') or '—'}",
                 f"- **Podtyp:** {kind}{conf_s}",
                 f"- **Po schválení archivovat zdroj:** {arch_s}",

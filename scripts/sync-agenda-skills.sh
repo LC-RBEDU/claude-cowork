@@ -8,10 +8,12 @@ SKILLS=(
   agenda-triage
   agenda-co-ted
   agenda-work
+  agenda-status-update
   agenda-analyze
   agenda-weekly-review
   agenda-priority-review
   agenda-retro
+  agenda-proces
 )
 DESTS=(
   "$HOME/.cursor/skills"

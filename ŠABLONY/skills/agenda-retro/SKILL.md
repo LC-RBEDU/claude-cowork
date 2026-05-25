@@ -18,7 +18,10 @@ description: "Use for retrospektiva spolupráce, retro MrLUC, vylepšení systé
 1. Retro draft (cron skeleton)
 2. Weekly draft nebo finální `00-System/weekly/YYYY-Www.md` ze stejného týdne
 3. `00-System/Triage-Applied/` — co se aplikovalo tento týden (soubory podle data)
-4. Volné poznámky uživatele v chatu
+4. (Po F8) `00-System/agent-context.json` — system snapshot
+5. Volné poznámky uživatele v chatu
+
+**Vault (v2):** `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN`
 
 ## Výstupní struktura (`retro-YYYY-Www.md`)
 

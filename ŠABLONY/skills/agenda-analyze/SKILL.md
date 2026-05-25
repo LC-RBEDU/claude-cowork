@@ -7,8 +7,9 @@ description: "Analyzuje materiály (URL, vault) k tématu/úkolu. Výstup: struk
 
 > Paralelní skill. Rozbor materiálů → **stručný, strukturovaný** `.md` ve výstupech — **ne** jedna fixní šablona, ale **tvar podle typu dokumentu**.
 
-**Vault:** `/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN`  
+**Vault (v2):** `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN`
 **Referenční příručka tvarů výstupu:** `00-System/Templates/analyze-output-guide.md` (varianty, ne kopírovat 1:1)
+**V2 změna:** analýza je **material soubor** se YAML frontmatter `type: material` v `02-PROJEKTY/<slug>/materials/` (project-specific) nebo `05-RESOURCES/<kategorie>/` (cross-project). M:N linkování přes `projects:` array. Konvence: `00-System/Templates/material-template.md`.
 
 ## Kdy spouštět
 
@@ -49,23 +50,32 @@ description: "Analyzuje materiály (URL, vault) k tématu/úkolu. Výstup: struk
 - Hub `### <ID> —` pokud vázané na úkol
 - `00-System/Memory/about-me.md` pokud ještě v session ne
 
-### 3. Zapiš analýzu
+### 3. Zapiš analýzu (v2)
 
-**Soubor:** `02-PROJEKTY/<slug>/YYYY-MM-DD-analyza-<tema>.md`
+**Soubor:**
+- Project-specific: `02-PROJEKTY/<slug>/materials/YYYY-MM-DD-analyza-<tema>.md`
+- Cross-project: `05-RESOURCES/<kategorie>/YYYY-MM-DD-analyza-<tema>.md`
 
-**YAML hlavička (vždy):**
+**YAML hlavička (v2 material schema):**
 
 ```yaml
 ---
-datum: YYYY-MM-DD
-typ: schuzka          # clanek | smlouva | schuzka | technicky | data | slack | mix
-projekt: "[[02-PROJEKTY/Finance]]"
-úkol: F22             # nebo —
+type: material
+material_kind: clanek          # clanek | smlouva | schuzka | technicky | data | slack | mix | gdoc
+url: ""                        # pokud je externí URL primární
+projects:
+  - "[[<slug>]]"               # bare alias, M:N
+areas:
+  - "[[03-AREAS/<oblast>]]"    # path-style, area mimo PROJEKTY
+title: "Analýza — <téma>"
+created: YYYY-MM-DD
 zdroje:
   - "[popisek](https://...)"
   - "[[07-ARCHIV/...]]"
 ---
 ```
+
+V task `.md` frontmatteru je material referencován v `materials:` array (bare alias).
 
 **Tělo — podle `typ` (vyber odpovídající blok; ostatní vynech):**
 
@@ -140,18 +150,18 @@ zdroje:
 
 Mermaid vždy v fenced bloku ` ```mermaid `. Udržuj diagramy **malé** (≤ 12 uzlů).
 
-### 4. Propoj hub
+### 4. Propoj hub a tasky
 
-- **Výstupy:** `- [[02-PROJEKTY/<slug>/YYYY-MM-DD-analyza-<tema>|popisek]]`
-- U úkolu: `_Analýza: [[02-PROJEKTY/<slug>/...]]_`
-- **Posledně aktualizováno** = dnes
+- Hub `02-PROJEKTY/<HubName>.md` → `## Materiály` Bases embed (`![[All-materials.base#ProjectMaterials]]`) automaticky zachytí material soubor s `projects: [[<slug>]]`
+- U dotčeného tasku: patch frontmatter `materials:` array — přidat `[[<material-filename-bez-pripony>]]`
+- **updated** v hubu (frontmatter) nebo task = dnes
 
 ### 5. Chat (max 5 řádků)
 
 ```
-Uloženo: [[02-PROJEKTY/finance/2026-05-21-analyza-nrb-zaruka|NRB záruka — rozbor]]
+Uloženo: [[2026-05-21-analyza-nrb-zaruka|NRB záruka — rozbor]] (material → finance)
 
-• typ: smlouva — hlavní riziko: …
+• material_kind: smlouva — hlavní riziko: …
 • doporučení: …
 • otevřeno: …
 ```

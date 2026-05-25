@@ -1,11 +1,13 @@
 ---
 name: agenda-co-ted
-description: "Use when user asks 'co teď', 'co dnes', 'na co se mám zaměřit', 'co je urgentní', 'ukaž mi dashboard', 'co mám rozdělaného'. Reads 02-PROJEKTY/*.md or 00-System/dashboard-data.json. ICE scoring aligned with dashboard top_priority. Optional 'ukliď' moves done items to HOTOVO. Never modifies files unless user says ukliď/clean/urgent/odlož."
+description: "Use when user asks 'co teď', 'co dnes', 'na co se mám zaměřit', 'co je urgentní', 'ukaž mi dashboard', 'co mám rozdělaného' v MrLUC Second Brain v2. Reads 02-PROJEKTY/<slug>/tasks/*.md frontmatter (file-per-task) or 00-System/agent-context.json (po F8). ICE scoring (I*C)/E sjednocený s Bases formula. Optional 'ukliď' archivuje Done tasky do 07-ARCHIV/tasks-done/. Never modifies files unless user says ukliď/clean/urgent/odlož."
 ---
 
-# agenda-co-ted
+# agenda-co-ted (v2)
 
 > "Sednu si, jednou se podívám, vím co dělat." Ad-hoc prioritní kapka — bez týdenního review.
+
+**Vault:** `OBSIDIAN/` — `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN`
 
 ## Kdy spouštět
 
@@ -15,19 +17,24 @@ description: "Use when user asks 'co teď', 'co dnes', 'na co se mám zaměřit'
 
 ## Načti data
 
-Preferuj (v pořadí):
+V2 priority pořadí:
 
-1. `OBSIDIAN/00-System/dashboard-data.json` — `topPriority`, `waiting`, `tasks`
-2. Jinak parsuj všechny `OBSIDIAN/02-PROJEKTY/*.md` (kromě `DEPRECATED.md`)
+1. **`OBSIDIAN/00-System/agent-context.json`** (PRIMARY) — pre-rendered `top_priority` (top 15), `recently_done`, `upcoming_deadlines`, `recurring_pending`, `blocked_by_graph`. Pokud `generated_at` je starší než 24 h, spusť `python3 scripts/build_agent_context.py` před analýzou.
+2. Fallback: parsuj všechny `OBSIDIAN/02-PROJEKTY/<slug>/tasks/*.md` frontmattery (file-per-task)
+3. Backup: `OBSIDIAN/00-System/Dashboard.md` Bases embedy ukazují totéž — agent může otevřít
 
-## Klasifikuj
+## Klasifikuj (z frontmatter status + deadline + waitUntil + ice)
 
-- **PO TERMÍNU**: `dl` nebo `Vrátit se` < dnes
-- **DNES**: deadline = dnes
-- **ASAP / Q1**: priorita ASAP (Q1 v md → ASAP)
-- **TOP podle ICE**: `(I×C)/E` + bonusy (+50 ASAP, +30 overdue, +15 do 2 dnů) — **bez Waiting**
-- **WAITING**: aktivní s `waitUntil` ≥ dnes — zobraz zvlášť, ne v TOP
-- **BLOKOVANÉ**: `**Blokováno:**` kromě „nic"
+- **PO TERMÍNU**: `deadline` < dnes && `status != Done`
+- **DNES**: `deadline` = dnes
+- **ASAP / Doing**: `status` = ASAP nebo Doing
+- **TOP podle ICE**: `priority_score = (ice_i * ice_c) / ice_e` + bonusy:
+  - +50 pokud `status` = ASAP
+  - +30 pokud overdue
+  - +15 pokud `deadline <= dnes + 2 dnů`
+  - **bez Waiting**
+- **WAITING**: `status = Waiting` && `waitUntil >= dnes` — zobraz zvlášť
+- **BLOKOVANÉ**: `blocked_by != []` — kromě "nic"
 
 ## Vrať dashboard
 
@@ -36,8 +43,8 @@ Preferuj (v pořadí):
 CO TEĎ — DD/MM/YYYY
 ═══════════════════════════════════════════════
 
-🔥 TOP 3 (z dashboardu / ICE)
-  • [slug/ID] název — p=ASAP dl=…
+🔥 TOP 3 (z agent-context / ICE)
+  • [slug/ID] název — status=ASAP deadline=…
   ...
 
 ⏸ WAITING (N)
@@ -55,12 +62,18 @@ Příkazy: ukliď | detail <slug> | revize priorit
 
 ## Subcommands
 
-- **`ukliď` / `clean`** → `[x]` subtasky / hotové úkoly → preview → `## Recently moved to HOTOVO` v hub md
-- **`detail <slug>`** → celý `02-PROJEKTY/<slug>.md` + briefing (Kontext, Progress, Materiály)
+- **`ukliď` / `clean`**:
+  - Najdi task soubory v `02-PROJEKTY/<slug>/tasks/` se `status: Done`
+  - Preview seznam → potvrzení
+  - Přesuň do `07-ARCHIV/tasks-done/<slug>/<filename>` (cron `archive_done_tasks.py` to dělá automaticky, ale tady manuální verze)
+  - Update `open_tasks_count` v hub `.md` frontmatteru
+  - Po batchi spusť `python3 scripts/build_agent_context.py`
+- **`detail <slug>`** → otevři `02-PROJEKTY/<HubName>.md` + briefing (Cíl, Scope, Kontext, Otevřené otázky, Aktivní úkoly)
 - **`revize priorit`** → deleguj na skill `agenda-priority-review`
 
 ## Pravidla
 
 - Nikdy neukládej bez explicitního příkazu
 - Waiting nikdy v TOP 3
-- Cesty: `02-PROJEKTY/`, ne `AGENDA/`
+- Cesty: `02-PROJEKTY/<slug>/tasks/` (ne `AGENDA/`, ne H3 v hubu)
+- Bases dashboard (`Dashboard.md`) je pro user oko, agent ho čte přes frontmatter parser

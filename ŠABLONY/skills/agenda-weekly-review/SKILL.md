@@ -13,9 +13,9 @@ description: "Use when user asks for týdenní shrnutí, weekly review, schvál 
 - Po cronu: soubor `OBSIDIAN/00-System/weekly/YYYY-Www-draft.md` existuje
 - Neděle večer — hned po otevření draftu (před nebo po `agenda-retro`)
 
-## Cesty (vault)
+## Cesty (vault, v2)
 
-- Vault: `/Users/lukascypra/My Drive - PRV/# WORK/SECOND_BRAIN/OBSIDIAN`
+- Vault: `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN`
 - Draft: `00-System/weekly/YYYY-Www-draft.md`
 - Finální: `00-System/weekly/YYYY-Www.md`
 - Procesy: `00-System/Memory/procesy-mrluc.md`
@@ -25,7 +25,8 @@ description: "Use when user asks for týdenní shrnutí, weekly review, schvál 
 ### 1. Načti draft
 
 - Najdi nejnovější `*-draft.md` v `00-System/weekly/` (nebo konkrétní týden z dotazu)
-- Přečti `dashboard-data.json` nebo `dashboard-tasks-source.json` pro kontext priorit
+- (Po F8) Přečti `00-System/agent-context.json` pro kontext priorit
+- Jinak: scan `02-PROJEKTY/<slug>/tasks/*.md` frontmatterů (file-per-task) a `07-ARCHIV/tasks-done/<slug>/*.md` pro Done tasky tohoto týdne
 
 ### 2. Obohať (LLM)
 

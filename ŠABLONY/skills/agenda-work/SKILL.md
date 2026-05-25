@@ -1,11 +1,13 @@
 ---
 name: agenda-work
-description: "Use when user works on a MrLUC project — 'jdeme na <slug>', 'otevři <slug>', documents/outputs, task updates. Reads 02-PROJEKTY/<slug>.md (Kontext, Progress, Materiály, úkoly) + scans 02-PROJEKTY/<slug>/ outputs. NEVER modifies files without confirmation."
+description: "Use when user works on a MrLUC Second Brain v2 project — 'jdeme na <slug>', 'otevři <slug>', documents/outputs, task updates. Reads 02-PROJEKTY/<HubName>.md (Cíl, Scope, Kontext, Otevřené otázky, Aktivní úkoly via Bases) + 02-PROJEKTY/<slug>/tasks/*.md (file-per-task) + 02-PROJEKTY/<slug>/ outputs. NEVER modifies files without confirmation."
 ---
 
-# agenda-work
+# agenda-work (v2)
 
-> Otevři téma, zorientuj se, udělej výstup. Hub `02-PROJEKTY/<slug>.md` + složka výstupů `02-PROJEKTY/<slug>/`.
+> Otevři projekt, zorientuj se, udělej výstup. Hub `02-PROJEKTY/<HubName>.md` (charter), tasky `02-PROJEKTY/<slug>/tasks/<ID>-<slug>.md`, outputs v `02-PROJEKTY/<slug>/`.
+
+**Vault:** `OBSIDIAN/` — `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN`
 
 ## Kdy spouštět
 
@@ -15,148 +17,127 @@ description: "Use when user works on a MrLUC project — 'jdeme na <slug>', 'ote
 - "Aktualizuj výstupy <slug>"
 - "Uprav úkoly v <slug>" / "Přidej task" / "Uzavři task"
 
----
-
 ## Workflow
 
-### 1. Načti kontext
+### 1. Načti kontext (v2)
 
-Před tím než cokoli uděláš:
+1. **PRIMARY:** `OBSIDIAN/00-System/agent-context.json` → najdi `projects[]` podle `slug`, vyextrahuj briefing (status, area, owner, open_tasks_count, top tasks ze `top_priority` filtered by slug)
+2. (1× per session) `OBSIDIAN/00-System/Memory/about-me.md`
+3. Hub `OBSIDIAN/02-PROJEKTY/<HubName>.md` — frontmatter (slug, status, area, people, boundaries, metrics_kpi, open_tasks_count) + body (Cíl, Scope, Kontext, Otevřené otázky)
+4. Tasky `OBSIDIAN/02-PROJEKTY/<slug>/tasks/*.md` — frontmatter každého souboru (id, status, ICE, deadline, waitUntil, materials, source)
+5. Outputs `OBSIDIAN/02-PROJEKTY/<slug>/` (mimo `tasks/` a `materials/`) — soubory výstupů
+6. Materials `OBSIDIAN/02-PROJEKTY/<slug>/materials/` + cross-project `05-RESOURCES/` (přes `materials:` array v task frontmatteru)
 
-1. Přečti `OBSIDIAN/00-System/Memory/about-me.md` (pokud ještě v session ne)
-2. Přečti `OBSIDIAN/02-PROJEKTY/<slug>.md` — **## Kontext**, **## Progress**, **## Materiály**, **## Otevřené otázky**, aktivní úkoly, backlog
-3. Projdi `OBSIDIAN/02-PROJEKTY/<slug>/` — seznam souborů (datum z názvu nebo mtime); volitelně `_index.md`
-4. Volitelně `00-System/dashboard-data.json` → `projects[slug]` briefing (contextSnippet, materials)
-
-Pokud slug není jasný z uživatelovy zprávy → zobraz seznam aktivních témat z `00-System/Index.md` a ptej se.
+Pokud slug není jasný → zobraz seznam aktivních projektů z `00-System/Index.md` (Bases embed) a ptej se.
 
 ### 2. Ukaž orientační přehled
 
-Vždy na začátku session zobraz:
-
 ```
 ═══════════════════════════════════════════════
-TÉMA: <Název tématu> [<slug>]
+PROJEKT: <HubName> [<slug>]
+Status: <active/paused> | Owner: <name> | Area: <area>
 ═══════════════════════════════════════════════
 
-📎 KONTEXT / PROGRESS / MATERIÁLY (zkráceně z hubu)
+🎯 CÍL: <z body Cíl a hodnota>
+
+📋 SCOPE (In/Out): <z body Scope>
+
+📎 KONTEXT (zkráceně z hubu)
+
+❓ OTEVŘENÉ OTÁZKY: <count>
+  • ...
 
 📋 AKTIVNÍ ÚKOLY (<N>)
-  • [Q1, S=18] Název úkolu — vrátit se: dnes
-  • [Q2, S=12] Název úkolu — vrátit se: 2026-05-10
+  • [ASAP, Score=18.0] RBU30 — Název úkolu — deadline 2026-05-30
+  • [Next, Score=14.0] RBU15 — Filtrace pohledů
   ...
 
-📁 EXISTUJÍCÍ VÝSTUPY
-  • report-q1-2026.docx (Word dokument, 2026-04-15)
-  • architektura-rb-universe.md (Mermaid mindmapa, 2026-04-20)
-  • kalkulace-naklady.xlsx (Excel, 2026-04-01)
-  [prázdné — žádné výstupy zatím]
+📁 EXISTUJÍCÍ VÝSTUPY (mimo tasks/, materials/)
+  • report-q1-2026.docx (2026-04-15)
+  • architektura-rb-universe.md (2026-04-20)
 
-💡 BACKLOG (nápady bez akce): <N> položek
-
+💡 BACKLOG: <N> tasků se status: Backlog
 ═══════════════════════════════════════════════
 Co chceš dělat?
   [N] Nový výstup
   [U] Aktualizovat existující výstup
-  [T] Upravit úkoly (přidat / uzavřít / změnit metadata)
-  [D] Detail tématu (celý AGENDA soubor)
+  [T] Upravit úkoly (přidat / uzavřít / změnit metadata / status flip)
+  [D] Detail tématu (celý hub + jeden task)
 ```
 
-Pokud uživatel zadal konkrétní instrukci hned (např. "udělej mi mindmapu procesu onboarding"), přeskoč výběr a jdi rovnou na krok 3 s tím, co žádal.
+Pokud uživatel zadal konkrétní instrukci hned, přeskoč výběr a jdi rovnou na krok 3.
 
 ### 3. Proveď práci
 
 #### 3A — Nový nebo aktualizovaný výstup
 
-Typy výstupů a kde je uložit:
-
 | Typ | Formát | Kde ukládat |
 |-----|--------|-------------|
 | Dokument (zpráva, analýza, memo) | `.docx` | `02-PROJEKTY/<slug>/` |
 | Mindmapa / diagram | `.mermaid` / HTML | `02-PROJEKTY/<slug>/` |
-| Proces pro Architekta | `.md` (konvence odrážek) | `02-PROJEKTY/firemni-procesy/procesy/` — skill `agenda-proces` |
+| Proces pro Architekta | `.md` | `02-PROJEKTY/firemni-procesy/procesy/` (skill `agenda-proces`) |
 | Kalkulace / tabulka | `.xlsx` | `02-PROJEKTY/<slug>/` |
 | Strukturovaná poznámka | `.md` | `02-PROJEKTY/<slug>/` |
 | Skript | `.py` / `.js` | `02-PROJEKTY/<slug>/` |
 | MCP / n8n | `.json` | `02-PROJEKTY/<slug>/` |
+| **Material** (M:N) | `.md` s frontmatter `type: material` | `02-PROJEKTY/<slug>/materials/` (project-specific) NEBO `05-RESOURCES/<kategorie>/` (cross-project) |
 
-Při **aktualizaci existujícího souboru**:
-- Přečti soubor, identifikuj, co je zastaralé nebo neúplné
-- Navrhni konkrétní změny PŘED zápisem
-- Přidej do názvu verzi nebo datum jen pokud uživatel chce archivovat původní (default: přepiš)
-
-Při **tvorbě nového výstupu**:
-- Zeptej se na rozsah a účel, pokud není jasný
-- Navrhni obsah / osnovu před výrobou
-- Postupuj iterativně u delších dokumentů (část → schválení → část)
-
-#### 3B — Úprava úkolů
-
-Ukáž aktuální úkoly a navrhni změny:
+#### 3B — Úprava úkolů (file-per-task)
 
 ```
-Návrh změn v 02-PROJEKTY/<slug>.md:
+Návrh změn v 02-PROJEKTY/<slug>/tasks/:
 
-✅ Uzavřít (přesunout do "Recently moved to HOTOVO"):
-  • [Q2, S=14] Přidat retry do FIO syncu
+✅ Uzavřít → status: Done (cron archive_done_tasks.py přesune do 07-ARCHIV/tasks-done/<slug>/):
+  • RBU13 — Onboarding checklist Pavla — všechny subtasky [x]
 
-➕ Přidat:
-  • [Q2, ICE 7/6/5, S=8.4] Napsat tech spec pro ReBeL Slack integraci
-    Vrátit se: 2026-05-15 | Blokováno: nic
+➕ Přidat (nový file): 02-PROJEKTY/<slug>/tasks/<NEXT_ID>-<slugify(title)>.md
+  • Status: Next | ICE I7 C6 E5 = 8.4
+  • Deadline: 2026-05-15 | Source: ...
 
-✏️ Upravit metadata:
-  • [Q1] Sales dashboard → přesunout do Q2 (deadline splněn)
+✏️ Update existujícího:
+  • RBU15 — status: Next → ASAP (důvod: deadline 2026-05-29)
+  • RBU6 — waitUntil: → 2026-06-30 (Káťa potvrdila timing)
 
 OK? (ano / uprav)
 ```
 
-Proveď zápis až po potvrzení.
+Proveď zápis až po potvrzení. Vždy preview → confirm → write.
 
 ### 4. Ulož výstupy
 
-- Výstup ulož do `02-PROJEKTY/<slug>/`
-- Pojmenuj soubor výstižně: `<popis>-<YYYY-MM-DD>.<ext>` nebo bez data pokud jde o living document, který se bude přepisovat
-- V sekci "Materiály a poznámky" v `OBSIDIAN/02-PROJEKTY/<slug>.md` přidej odkaz: `viz 02-PROJEKTY/<slug>/<soubor>`
+- Output do `02-PROJEKTY/<slug>/<output_filename>.<ext>`
+- Pojmenuj výstižně: `<popis>-<YYYY-MM-DD>.<ext>` nebo bez data pro living dokument
+- V hubu **## Materiály** pomocí Bases embed `![[All-materials.base#ProjectMaterials]]` — pokud výstup chceš mít v Bases, ulož jako material soubor (s `type: material` frontmatter v `02-PROJEKTY/<slug>/materials/`)
+- Jinak prostý odkaz `[[02-PROJEKTY/<slug>/<output_filename>]]` v sekci ## Materiály mimo Bases embed
 
-### 5. Aktualizuj AGENDA soubor
+### 5. Aktualizuj task soubory + hub
 
-Po dokončení práce navrhni update `OBSIDIAN/02-PROJEKTY/<slug>.md`:
-- Uzavřené úkoly → přesuň do "Recently moved to HOTOVO" (s datem)
-- Nové úkoly → přidej s metadaty
-- Odkaz na nový/aktualizovaný výstup → do sekce Materiály
-- Update `00-System/Index.md` (počet aktivních, top priorita, datum)
+- Uzavřené tasky → status `Done` ve frontmatteru (cron archivuje)
+- Nové tasky → vytvoř nové `.md` soubory v `tasks/`
+- Update `open_tasks_count` v hub frontmatteru
+- Hub Otevřené otázky / Progress sekce — manuálně doplň pokud relevantní
 
 Vždy jako preview, vždy čekej na potvrzení.
 
+### 5b. Refresh agent context (po každém zápisu task / hub)
+
+```bash
+python3 scripts/build_agent_context.py
+```
+
 ### 6. Hláška na konci
 
-Krátká, konkrétní, bez patosu:
-
 ```
-Hotovo. Vytvořen: architektura-rb-universe.md (Mermaid diagram).
-Uzavřen 1 úkol, přidán 1 nový [Q2, S=9].
-VÝSTUPY/rb-universe-development/ — celkem 3 soubory.
+Hotovo. Vytvořen: architektura-rb-universe.md.
+Uzavřen 1 task (RBU13), přidán 1 nový (RBU30, Score 8.4).
+02-PROJEKTY/rb-universe-development/ — celkem N souborů.
 ```
-
----
-
-## Propojení s triage
-
-Pokud uživatel přijde s větou typu "po triage chci aktualizovat výstupy ke <slug>":
-
-1. Přečti `OBSIDIAN/02-PROJEKTY/<slug>.md` — zejména sekci "Recently moved to HOTOVO" a nové úkoly
-2. Projdi existující výstupy v `02-PROJEKTY/<slug>/`
-3. Navrhni, které výstupy jsou zastaralé nebo neúplné vzhledem k nové informaci
-4. Postupuj jako v kroku 3A
-
----
 
 ## Pravidla
 
 - **Nikdy nepřepisuj soubory bez náhledu** — vždy ukáž co chceš změnit
-- **Nikdy neupravuj AGENDA soubor bez potvrzení**
-- **Výstupy jdou vždy do `02-PROJEKTY/<slug>/`** — nikdy jinam
+- **Nikdy neupravuj task soubory bez potvrzení**
+- **Výstupy do `02-PROJEKTY/<slug>/` (root projektu); tasky do `tasks/`; materials do `materials/`**
 - **Při nejasném zadání** — polož 1 konkrétní otázku, nezačínej hádat
-- **Mindmapy prioritně jako HTML widget v chatu** — soubor jen pokud uživatel chce archivovat
-- **U skriptů a MCP** — vždy přidej stručný komentář do souboru, co to dělá a kdy vzniklo
-- **Tone:** viz `OBSIDIAN/00-System/Memory/anti-ai-writing-tools.md` — informálně, konkrétně, bez AI frází
+- **Mindmapy prioritně jako HTML widget v chatu** — soubor jen pokud user chce archivovat
+- **Tone:** `OBSIDIAN/00-System/Memory/anti-ai-writing-tools.md`

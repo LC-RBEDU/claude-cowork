@@ -1,0 +1,118 @@
+[
+  {
+    "slug": "strategy",
+    "hub_filename": "Strategy.md",
+    "czech_name": "Strategy",
+    "id_prefix": "S",
+    "area": "[[03-AREAS/Firemní strategie]]",
+    "skip": true,
+    "skip_reason": "F2 pilot — already migrated"
+  },
+  {
+    "slug": "allfred",
+    "hub_filename": "Allfred.md",
+    "czech_name": "Allfred",
+    "id_prefix": "AF",
+    "area": "[[03-AREAS/Allfred]]"
+  },
+  {
+    "slug": "exponential-summit",
+    "hub_filename": "Exponential Summit.md",
+    "czech_name": "Exponential Summit",
+    "id_prefix": "ES",
+    "area": "[[03-AREAS/Exponential Summit]]"
+  },
+  {
+    "slug": "finance",
+    "hub_filename": "Finance.md",
+    "czech_name": "Finance",
+    "id_prefix": "F",
+    "area": "[[03-AREAS/Finance]]"
+  },
+  {
+    "slug": "firemni-procesy",
+    "hub_filename": "Firemní procesy.md",
+    "czech_name": "Firemní procesy",
+    "id_prefix": "FP",
+    "area": "[[03-AREAS/Firemní strategie]]"
+  },
+  {
+    "slug": "kratky-potlesk",
+    "hub_filename": "Krátký potlesk.md",
+    "czech_name": "Krátký potlesk",
+    "id_prefix": "KP",
+    "area": "[[03-AREAS/Krátký potlesk]]"
+  },
+  {
+    "slug": "ma-odyssey",
+    "hub_filename": "M&A Odyssey.md",
+    "czech_name": "M&A Odyssey",
+    "id_prefix": "MO",
+    "area": "[[03-AREAS/M&A]]"
+  },
+  {
+    "slug": "obecna-inspirace",
+    "hub_filename": "Obecná inspirace.md",
+    "czech_name": "Obecná inspirace",
+    "id_prefix": "OI",
+    "area": "[[03-AREAS/Vibe coding]]",
+    "skip": true,
+    "skip_reason": "F3.8 — projekt se ruší, OI1-OI11 migrace do 05-RESOURCES/inspirace"
+  },
+  {
+    "slug": "operations",
+    "hub_filename": "Operations.md",
+    "czech_name": "Operations",
+    "id_prefix": "OPS",
+    "area": "[[03-AREAS/Operations]]"
+  },
+  {
+    "slug": "osobni",
+    "hub_filename": "Osobní.md",
+    "czech_name": "Osobní",
+    "id_prefix": "OS",
+    "area": "[[03-AREAS/Osobní]]"
+  },
+  {
+    "slug": "owners",
+    "hub_filename": "Owners.md",
+    "czech_name": "Owners",
+    "id_prefix": "OWN",
+    "area": "[[03-AREAS/Owners]]"
+  },
+  {
+    "slug": "pipedrive-a-dalsi-nastroje",
+    "hub_filename": "Pipedrive a další nástroje.md",
+    "czech_name": "Pipedrive a další nástroje",
+    "id_prefix": "PD",
+    "area": "[[03-AREAS/Pipedrive]]"
+  },
+  {
+    "slug": "rb-universe-development",
+    "hub_filename": "RB Universe.md",
+    "czech_name": "RB Universe development",
+    "id_prefix": "RBU",
+    "area": "[[03-AREAS/RB Universe]]"
+  },
+  {
+    "slug": "rb-network",
+    "hub_filename": "Red Button Network.md",
+    "czech_name": "Red Button Network",
+    "id_prefix": "RBN",
+    "area": "[[03-AREAS/Red Button Network]]"
+  },
+  {
+    "slug": "sales-a-business-development",
+    "hub_filename": "Sales a Business Development.md",
+    "czech_name": "Sales a Business Development",
+    "id_prefix": "SBD",
+    "area": "[[03-AREAS/Sales a Business Development]]"
+  },
+  {
+    "slug": "vibe-coding",
+    "hub_filename": "Vibe coding.md",
+    "czech_name": "Vibe coding",
+    "id_prefix": "VC",
+    "area": "[[03-AREAS/Vibe coding]]"
+  }
+]

@@ -1,26 +1,51 @@
-# Second Brain — Europe/Prague (supercronic)
+# Second Brain v2 — Europe/Prague (supercronic)
 # Stateless: vault I/O via Google Drive API (lib/drive_io.py).
 # VAULT_DRIVE_ID + GOOGLE_DRIVE_OAUTH_JSON + GOOGLE_DRIVE_SA_JSON injected by Coolify.
+#
+# V2 architecture (since F6/F7):
+# - File-per-task in 02-PROJEKTY/<slug>/tasks/*.md (not H3 in hub anymore)
+# - Bases dashboard reads frontmatter live (no JSON build needed for Obsidian view)
+# - Lifecycle scripts: done_from_checkboxes, waiting_to_asap, overdue_flag, archive_done, recurring
+# - Legacy build_dashboard.py + sync_tasks_from_projekty.py kept only for HTML dashboard backwards-compat
+#   (deletion in F9 — keep until F8 agent-context.json is in production)
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 CALENDAR_DAYS_AHEAD=2
 TZ=Europe/Prague
 
+# === V2 LIFECYCLE (denně) ===
+# 03:00 — done from checkboxes (auto-flip status: Done if all [x])
+0 3 * * * /usr/local/bin/python3 /app/cron/lifecycle_done_from_checkboxes.py >> /var/log/second-brain/lifecycle.log 2>&1
+# 03:10 — waiting → asap when waitUntil expired
+10 3 * * * /usr/local/bin/python3 /app/cron/lifecycle_waiting_to_asap.py >> /var/log/second-brain/lifecycle.log 2>&1
+# 03:20 — overdue flag (append OVERDUE log line in body)
+20 3 * * * /usr/local/bin/python3 /app/cron/lifecycle_overdue_flag.py >> /var/log/second-brain/lifecycle.log 2>&1
+# 04:00 — archive Done tasks (move .md → 07-ARCHIV/tasks-done/<slug>/)
+0 4 * * * /usr/local/bin/python3 /app/cron/archive_done_tasks.py >> /var/log/second-brain/lifecycle.log 2>&1
+# 04:30 — recurring tasks rotation (Done → archive + create next instance, F7.2)
+30 4 * * * /usr/local/bin/python3 /app/cron/lifecycle_recurring.py >> /var/log/second-brain/lifecycle.log 2>&1
+
+# === TRIAGE ===
 # Po-Pa: triage 7:00, 14:00, 20:00
 0 7,14,20 * * 1-5 /usr/local/bin/python3 /app/cron/triage_run.py >> /var/log/second-brain/triage.log 2>&1
-# Po-Pa: rebuild +5 min (po triage)
-5 7,14,20 * * 1-5 /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
-# Denně 8–21: inbox badge + pending (n8n capture mezi triage sloty; So–Ne bez odpoledního triage)
-35 8-21 * * * /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build-hourly.log 2>&1
-# Po-Pa: edu news 7:10
-10 7 * * 1-5 /usr/local/bin/python3 /app/cron/edu_news_refresh.py >> /var/log/second-brain/edu.log 2>&1
-
 # So-Ne: jen ranni beh
 0 7 * * 0,6 /usr/local/bin/python3 /app/cron/triage_run.py >> /var/log/second-brain/triage.log 2>&1
-5 7 * * 0,6 /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
-10 7 * * 0,6 /usr/local/bin/python3 /app/cron/edu_news_refresh.py >> /var/log/second-brain/edu.log 2>&1
 
-# Ne: tydenni shrnuti + retro draft (vecer)
+# === EDU NEWS (recurring extra) ===
+# Po-Pa: edu news 7:10 (top kandidáti tématu pro OPS2 recurring task)
+10 7 * * 1-5 /usr/local/bin/python3 /app/cron/lifecycle_extra_edu_news.py >> /var/log/second-brain/edu.log 2>&1
+# So-Ne: jen ranní běh
+10 7 * * 0,6 /usr/local/bin/python3 /app/cron/lifecycle_extra_edu_news.py >> /var/log/second-brain/edu.log 2>&1
+
+# === WEEKLY / RETRO (Sunday evening) ===
 0 20 * * 0 /usr/local/bin/python3 /app/cron/weekly_summary_draft.py >> /var/log/second-brain/weekly.log 2>&1
 10 20 * * 0 /usr/local/bin/python3 /app/cron/retro_draft.py >> /var/log/second-brain/retro.log 2>&1
-15 20 * * 0 /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
+
+# === AGENT CONTEXT (F8) ===
+# Every 15 min during workday — refresh agent-context.json
+*/15 7-22 * * * /usr/local/bin/python3 /app/cron/build_agent_context.py >> /var/log/second-brain/agent-context.log 2>&1
+
+# === LEGACY (deprecated, will be removed in F9) ===
+# Po-Pa: rebuild +5 min (po triage) — pouze pro stary HTML dashboard
+# 5 7,14,20 * * 1-5 /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build.log 2>&1
+# 35 8-21 * * * /usr/local/bin/python3 /app/cron/build_dashboard.py >> /var/log/second-brain/build-hourly.log 2>&1

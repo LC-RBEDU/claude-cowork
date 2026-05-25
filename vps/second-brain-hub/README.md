@@ -1,27 +1,41 @@
-# second-brain-hub (MrLUC triage cron)
+# second-brain-hub (MrLUC v2 cron — Coolify, stateless)
 
-**Coolify = stateless cron** (triage, dashboard JSON do vaultu přes Drive API, edu news). **Dashboard UI = lokálně na Macu** (Obsidian / `http.server`).
+**Coolify = stateless cron** (lifecycle, triage, agent context, EDU news).
+**Dashboard UI = nativní Obsidian Bases** (čte frontmatter live, žádný HTML build).
 
-Detailní architektura: [`docs/sync-architecture.md`](docs/sync-architecture.md) · implementační plán: [`docs/sync-implementation-plan.md`](docs/sync-implementation-plan.md).
+Detailní architektura: [`docs/sync-architecture.md`](docs/sync-architecture.md).
 
-## Architektura
+## Architektura v2
 
 ```mermaid
 flowchart LR
-  n8n[n8n workflows] -->|".md"| DriveInbox[Drive 01-INBOX]
+  n8n[n8n workflows] -->|.md| DriveInbox[Drive 01-INBOX]
   DriveInbox -->|Drive API| Cron[coolify-dev supercronic]
-  Cron -->|Drive API| Vault[Drive OBSIDIAN root]
+  Cron -->|Drive API + CAS| Vault[Drive OBSIDIAN root]
   Vault <-->|Drive Desktop| Mac[Mac mirror + Obsidian]
-  Mac -->|serve_dashboard.sh| Browser[localhost Dashboard]
+  Mac -->|Bases plugin| Dashboard[Live dashboard]
+  Cron -->|agent-context.json| Agent[Cursor agent bootstrap]
 ```
 
 | Kde | Co běží |
 |-----|---------|
-| **Google Drive** | Vault root `1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz-` (`SECOND_BRAIN/OBSIDIAN/`) — SSOT pro vault |
-| **coolify-dev** | Docker (stateless): `triage_run.py`, `build_dashboard.py`, `edu_news_refresh.py` — veškerý I/O přes Drive API |
-| **Mac** | Obsidian + lokální dashboard (`scripts/serve_dashboard.sh` → `http://127.0.0.1:8765/Dashboard.html`) |
+| **Google Drive** | Vault root `1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz-` (`SECOND_BRAIN/OBSIDIAN/`) — SSOT |
+| **coolify-dev** | Docker stateless: lifecycle scripts (`done_from_checkboxes`, `waiting_to_asap`, `overdue_flag`, `archive_done_tasks`, `recurring`), `triage_run.py`, `lifecycle_extra_edu_news.py`, `build_agent_context.py` — vše přes Drive API + CAS |
+| **Mac** | Obsidian + Bases plugin čte frontmatter live, agent-context.json sync přes Drive Desktop |
 
-INBOX = `OBSIDIAN/01-INBOX/{slack,sembly,email,email/sent,daily}/` — relativní cesty od vault root ID výše.
+INBOX = `OBSIDIAN/01-INBOX/{slack,sembly,email,email/sent,daily}/`.
+
+## Datový model v2 (file-per-task)
+
+- **TASK** = single `.md` v `02-PROJEKTY/<slug>/tasks/<ID>-<slug>.md`
+  - YAML frontmatter (id, type, project, slug, status, ice_*, deadline, waitUntil, materials, source, blocked_by) — SSOT
+  - body s `## Operativní kroky` (checkboxy) + `## Poznámky / log`
+- **PROJECT HUB** = `02-PROJEKTY/<Hub>.md` s charterem (Cíl, Scope, Kontext, People, Metrics, Otevřené otázky) + Bases embedy
+- **MATERIAL** = `02-PROJEKTY/<slug>/materials/` nebo `05-RESOURCES/<category>/`, M:N přes `materials:` array v task frontmatteru
+- **AGENT CONTEXT** = `00-System/agent-context.json` snapshot pro Cursor agenta (every-write trigger / cron 15 min)
+- **ARCHIV** = `07-ARCHIV/tasks-done/<slug>/<ID>-*.md` (po 90 dnech / Done)
+
+Detaily: vault `00-System/Templates/agenda-system.md`.
 
 ## Git → Coolify Auto Deploy
 
@@ -39,127 +53,74 @@ git commit -m "second-brain: …"
 git push origin main
 ```
 
-## Coolify (dev)
-
-| | |
-|--|--|
-| **Projekt** | Second Brain |
-| **Aplikace** | `second-brain-hub` |
-| **HTTP** | Nevystaveno (bez FQDN / Traefik) |
-| **Volume** | host `/data/mrluc-second-brain` → `/data/mrluc` *(legacy safety net — odebrat v Phase 5)* |
-
-Kontejner je **stateless**: cron nečte `/data/mrluc`, jen `/var/log/second-brain/`. Volume zůstává do stabilního týdne po cutoveru.
-
-### Env (runtime)
-
-V Coolify UI u každé proměnné **Available at Runtime** (v DB `is_buildtime=false`). Build-time env se do cron kontejneru **nepropisují**.
+## Coolify (dev) — env
 
 | Proměnná | Význam |
 |----------|--------|
-| `VAULT_DRIVE_ID` | `1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz-` — OBSIDIAN root na Drive |
-| `GOOGLE_DRIVE_OAUTH_JSON` | Single-line JSON (`client_id`, `client_secret`, `refresh_token`, …) — viz `scripts/oauth_setup.py` |
-| `GOOGLE_DRIVE_SA_JSON` | volitelný fallback (Service Account); produkce používá OAuth |
+| `VAULT_DRIVE_ID` | `1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz-` — OBSIDIAN root |
+| `GOOGLE_DRIVE_OAUTH_JSON` | OAuth single-line JSON |
+| `GOOGLE_DRIVE_SA_JSON` | volitelný SA fallback |
 | `TZ` | `Europe/Prague` |
-| `CALENDAR_USER_EMAIL` | `lukas@redbuttonedu.cz` (domain-wide delegation pro kalendář) |
-| `CALENDAR_DAYS_AHEAD` | `2` (dnes + zítra; max 14) |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | alternativní název pro calendar SA |
-| `ANTHROPIC_API_KEY` | volitelné — LLM pro EDU news rerank a extrakci e-mailových závazků |
-| `ANTHROPIC_MODEL` | volitelné, default `claude-3-5-haiku-20241022` |
+| `CALENDAR_USER_EMAIL` | `lukas@redbuttonedu.cz` (DWD pro kalendář) |
+| `CALENDAR_DAYS_AHEAD` | `2` (max 14) |
+| `ANTHROPIC_API_KEY` | volitelné — LLM rerank EDU news + commitment extraction |
+| `ANTHROPIC_MODEL` | default `claude-3-5-haiku-20241022` |
 
-**Smazané (legacy):** `VAULT_PATH`, `DASHBOARD_JSON`, `LEGACY_TASKS`.
+**Smazané (legacy v1):** `VAULT_PATH`, `DASHBOARD_JSON`, `LEGACY_TASKS`.
 
-Kalendář: `cron/fetch_calendar.py` → `00-System/calendar-events.json`; `build_dashboard.py` to načte při buildu.
+## Cron (Europe/Prague) — viz `deploy/crontab`
 
-## Cron (Europe/Prague)
+### v2 lifecycle (denně)
 
-| Job | Po–Pá | So–Ne |
+| Job | Čas | Co dělá |
+|-----|-----|---------|
+| `lifecycle_done_from_checkboxes.py` | 03:00 | Všechny `[x]` → `status: Done` |
+| `lifecycle_waiting_to_asap.py` | 03:10 | `Waiting` + `waitUntil` ≤ dnes → `ASAP` |
+| `lifecycle_overdue_flag.py` | 03:20 | Append `OVERDUE` log do body |
+| `archive_done_tasks.py` | 04:00 | `Done` > 90 dní → `07-ARCHIV/tasks-done/<slug>/` |
+| `lifecycle_recurring.py` | 04:30 | Recurring `Done` → archive + nová instance |
+| `build_agent_context.py` | každých 15 min v 7-22 | refresh `00-System/agent-context.json` |
+
+### Triage / EDU news / Weekly
+
+| Job | Po-Pa | So-Ne |
 |-----|-------|-------|
 | `triage_run.py` | 7:00, 14:00, 20:00 | 7:00 |
-| `build_dashboard.py` | +5 min po triage | 7:05 |
-| `build_dashboard.py` (hourly) | **8–21, :35** | **8–21, :35** |
-| `edu_news_refresh.py` | 7:10 | 7:10 |
-| `weekly_summary_draft.py` | — | **Ne 20:00** |
-| `retro_draft.py` | — | **Ne 20:10** |
-| `build_dashboard.py` (po weekly) | — | **Ne 20:15** |
+| `lifecycle_extra_edu_news.py` | 7:10 | 7:10 |
+| `weekly_summary_draft.py` | — | Ne 20:00 |
+| `retro_draft.py` | — | Ne 20:10 |
 
-Hourly rebuild drží inbox badge a pending aktuální mezi triage sloty (n8n capture).
+### Schválení triáže
 
-Nedělní večer: drafty v `00-System/weekly/YYYY-Www-draft.md` a `00-System/Memory/retro-YYYY-Www-draft.md` → schválení skills `agenda-weekly-review`, `agenda-retro`. Revize priorit: ad-hoc `agenda-priority-review`.
+V Cursoru: `schval pending triáž` / `apply batch` (skill `agenda-triage`, mode PENDING).
 
-`edu_news_refresh.py` (OPS2): z `02-PROJEKTY/*.md` (HOTOVO za posledních N dní + rozpracované úkoly s vysokým ICE) vybere max 5 témat pro EDU news → `00-System/edu-news-topics.json`, `dashboard-tasks-source.json` (`eduNews`), checklist v `operations.md`, pak `build_dashboard.py`. Po `--clear` (natočení videa) nastaví `cycleStartedAt` + `progressBaseline` — staré HOTOVO a beze změny rozpracované úkoly se znovu nenabídnou.
+### Manuální EDU news reset (po nahrání videa)
 
 ```bash
-# po natočení videa v Cursoru (lokálně s OAuth env)
 GOOGLE_DRIVE_OAUTH_JSON="$(cat ~/.config/mrluc/oauth_creds.json)" \
 VAULT_DRIVE_ID=1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz- \
-python3 cron/edu_news_refresh.py --clear
+python3 cron/lifecycle_extra_edu_news.py --reset
 ```
 
-Volitelně `ANTHROPIC_API_KEY` pro LLM přeřazení kandidátů EDU news a pro extrakci e-mailových závazků (bez klíče běží heuristika).
+Logy: `docker logs <container>` nebo `docker exec … tail /var/log/second-brain/*.log`.
 
-`triage_run.py` skenuje `01-INBOX/{slack,sembly,email,daily}/` (včetně `email/sent/`). U odeslaných e-mailů volá `triage_commitments.py` — závazky (`kind: commitment`) nebo fallback: `archive_only` / business-action úkol (např. ukončení smlouvy). Batch JSON má `proposalType`: `add_task` | `update_task` | `archive_only`. Souhrn: `*-summary.md` v češtině.
+## Lifecycle pravidla v2
 
-Logy: `docker logs <container>` nebo `docker exec … tail /var/log/second-brain/*.log`
+### Status flow
+`Backlog → Next → Doing → Done` (happy path)
+`Next → Waiting (waitUntil) → ASAP → Done` (čekání s reaktivací)
+`Next → Done (cancel reason v body)` (zrušeno bez archivu)
 
-Schválení triáže: v Cursoru `schval pending triáž` / `apply batch`.
+### Recurring
+- Filename `<ID>.md` (bez slugify suffix), 1 aktivní instance
+- `recurring:` blok ve frontmatteru (frequency, weekday/interval, reset_body_sections)
+- Po `Done` → `lifecycle_recurring.py` archivuje + vytvoří next instance
+- `extra_module: edu_news` — volá `lifecycle_extra_edu_news.py` při refresh / reset
 
-## Waiting (čekání)
+### CAS (compare-and-swap)
+Každý zápis nese `expect_mtime`. Pokud user mezitím upravil v Obsidianu, cron se přeskočí (warning v logu).
 
-V `02-PROJEKTY/<téma>.md` u úkolu (`### F13 — …`):
-
-```markdown
-### F13 — Čekám na podpis
-**Waiting | Čekat do: 2026-05-23**
-```
-
-- Při přesunu do Waiting se v JSON mění jen `p` → `Waiting` a `waitUntil`; **ICE a `dl` zůstávají**.
-- Chybí-li datum → default **dnes + 3 dny** (Europe/Prague).
-- Po vypršení `waitUntil` (den ≤ dnes, Europe/Prague) `build_dashboard.py` **automaticky** přepíše v hubu `**Waiting | Čekat do: …**` → `**ASAP | ICE …**` (ICE a deadline zůstanou), znovu syncne JSON a úkol jde do **top priority** scoringu.
-- Ve sloupci Waiting zůstávají jen úkoly s `waitUntil` **po dnešku**.
-- TOP priority (max 3) **neobsahuje** aktivní Waiting; po reaktivaci ano (ASAP + ICE).
-
-## Dashboard lokálně (Mac)
-
-Cron zapisuje do Drive: `00-System/dashboard-data.json`, `dashboard-build-stamp.json`, `Dashboard.html`. Mac je vidí přes Drive Desktop mirror.
-
-### Auto-refresh (doporučeno)
-
-1. **Watch** (rebuild při změně vaultu): `scripts/watch_dashboard.py` nebo `scripts/install-dashboard-watch.sh` (launchd).
-2. **Serve** (polling v prohlížeči): z kořene repa `scripts/serve_dashboard.sh` → [http://127.0.0.1:8765/Dashboard.html](http://127.0.0.1:8765/Dashboard.html)
-
-`build_dashboard.py` při každém buildu zapíše stamp; UI každých ~10 s zkontroluje a překreslí panely.
-
-| Režim | Chování |
-|-------|---------|
-| **http://127.0.0.1:8765/Dashboard.html** | Live poll stamp + data (Cache-Control: no-cache) |
-| **file://** (dvojklik na `Dashboard.html`) | Poll každých 60 s — hint na `serve_dashboard.sh` pokud fetch selže |
-
-```bash
-# terminál 1 — rebuild při editaci vaultu (Drive mirror path)
-export VAULT_PATH="/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN"
-python3 scripts/watch_dashboard.py
-
-# terminál 2 — server pro live UI
-./scripts/serve_dashboard.sh
-```
-
-### Build jednorázově (proti Drive API)
-
-```bash
-cd vps/second-brain-hub
-GOOGLE_DRIVE_OAUTH_JSON="$(cat ~/.config/mrluc/oauth_creds.json)" \
-VAULT_DRIVE_ID=1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz- \
-python3 cron/build_dashboard.py
-```
-
-Nebo lokálně přes mirror path (legacy dev):
-
-```bash
-export VAULT_PATH="/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN"
-python3 cron/build_dashboard.py
-```
-
-## Lokální Docker test (cron)
+## Lokální Docker test
 
 ```bash
 docker build -t second-brain-hub:test .
@@ -169,15 +130,16 @@ docker run --rm \
   second-brain-hub:test
 ```
 
-## Coolify bootstrap
-
-`deploy/setup-coolify.sh` — vytvoří aplikaci **bez** veřejného FQDN. Po změně domény v minulosti:
+## Lokální agent-context refresh (mac)
 
 ```bash
-ssh coolify-dev 'bash -s' < deploy/setup-coolify.sh   # idempotentní
-# nebo ručně v DB: fqdn NULL, health_check_enabled false
+python3 ../../scripts/build_agent_context.py
 ```
 
-## Legacy sync (Phase 5)
+(píše `OBSIDIAN/00-System/agent-context.json` přes Drive Desktop mirror — pro Cursor agent bootstrap.)
 
-`scripts/sync_vault_to_vps.sh` a volume `/data/mrluc-second-brain` jsou **deprecated** — cron už nečte lokální mirror. Smazat po >1 týdnu stabilního běhu (viz implementační plán Phase 5).
+## Související
+
+- `OBSIDIAN/00-System/agent-bootstrap.md`
+- `OBSIDIAN/00-System/Templates/agenda-system.md` — kompletní průvodce v2
+- `.cursor/rules/second-brain-bootstrap.mdc` — always-applied agent rule

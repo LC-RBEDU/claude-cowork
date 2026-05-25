@@ -7,9 +7,9 @@ description: "Tvorba a úprava firemních procesů pro RB Universe Procesní arc
 
 > Draft procesu v Obsidianu → vizuální kontrola (Mermaid) → import do **RB Universe Procesní architekt** (`body_md` + *Vygenerovat kroky z Markdown těla*).
 
-**Vault:** `OBSIDIAN/` v SECOND_BRAIN  
-**Šablona:** `00-System/Templates/proces-architect-vstup.md`  
-**Referenční pilot:** `02-PROJEKTY/firemni-procesy/procesy/04-prijem-uctovani-dokladu.md`  
+**Vault (v2):** `OBSIDIAN/` v SECOND_BRAIN — `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN`
+**Šablona:** `00-System/Templates/proces-architect-vstup.md`
+**Referenční pilot:** `02-PROJEKTY/firemni-procesy/procesy/04-prijem-uctovani-dokladu.md`
 **RB Universe konvence:** repozitář `Red Button Universe` — `docs/procesy/obchodni-proces-architect-vstup.md`, `docs/architect_pilot.md`
 
 ## Kdy spouštět
