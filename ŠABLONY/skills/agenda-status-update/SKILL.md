@@ -1,6 +1,6 @@
 ---
 name: agenda-status-update
-description: "Single-task status flip in MrLUC Second Brain v2: hotovo, zruš, odlož, čekat do, ASAP. Reads 02-PROJEKTY/<slug>/tasks/<ID>-*.md frontmatter and patches status/deadline/waitUntil. ALWAYS preview before write. NEW skill in F4.5 — pre-existing skills (agenda-co-ted, agenda-work) handle bulk operations; this is for one-off taps."
+description: "Single-task status flip in MrLUC Second Brain v2: hotovo, zruš, odlož, čekat do, ASAP. Reads 02-PROJEKTY/<slug>/tasks/<ID> — *.md frontmatter (human-readable filename, em-dash U+2014) and patches status/deadline/waitUntil. Subtask reference syntax: `<ID>-N` (např. PD4-3 = 3. checkbox v ## Operativní kroky). ALWAYS preview before write. NEW skill in F4.5 — pre-existing skills (agenda-co-ted, agenda-work) handle bulk operations; this is for one-off taps."
 ---
 
 # agenda-status-update (v2)
@@ -21,10 +21,11 @@ description: "Single-task status flip in MrLUC Second Brain v2: hotovo, zruš, o
 ### 1. Najdi task soubor
 
 1. ID syntax: `[A-Z]+\d+[a-z]?` (S2, AF7, RBU29, OPS2 atd.)
-2. Hledej:
-   - `OBSIDIAN/02-PROJEKTY/*/tasks/<ID>-*.md` — pokud match, použij
-   - `OBSIDIAN/07-ARCHIV/tasks-done/*/<ID>-*.md` — pokud archived, varuj a ptej se zda zpět aktivovat
+2. Hledej (filename po F-fundamental refactoru = `<ID> — <Title>.md`, em-dash U+2014):
+   - `OBSIDIAN/02-PROJEKTY/*/tasks/<ID> — *.md` (nebo `<ID>.md` jako fallback) — pokud match, použij
+   - `OBSIDIAN/07-ARCHIV/tasks-done/*/<ID> — *.md` — pokud archived, varuj a ptej se zda zpět aktivovat
 3. Pokud více matchů → ptej se který slug
+4. Při odkazu z chatu / jiných tasků: uživatel může psát `[[<ID>]]` (resolvuje přes `aliases: [<ID>]` ve frontmatteru) nebo `<ID>-N` pro konkrétní subtask
 
 ### 2. Načti frontmatter
 
@@ -45,6 +46,7 @@ Mapping user intent → frontmatter změna:
 | User intent | Patch |
 |-------------|-------|
 | "hotovo" / "done" | `status: Done`, `updated: <today>`, body append `## Poznámky / log\n- <today>: Done — <důvod, pokud řekl>` |
+| "hotovo PD4-3" | flip checkbox `**PD4-3**` v `## Operativní kroky` na `[x]` (single subtask) |
 | "ASAP" / "urgent" | `status: ASAP`, `updated: <today>` |
 | "doing" / "rozdělaný" | `status: Doing`, `updated: <today>` |
 | "odlož do YYYY-MM-DD" | `status: Waiting`, `waitUntil: <date>`, `updated: <today>` |

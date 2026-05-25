@@ -39,6 +39,9 @@ MAPPING_FILE = VAULT_ROOT / "scripts" / "migration-mapping.json"
 
 MAX_SLUG_LEN = 50
 
+EM_DASH = "\u2014"
+SEPARATOR = f" {EM_DASH} "
+
 # === Parser regex (z sync_tasks_from_projekty.py) ===
 TASK_HEAD_RE = re.compile(
     r"^###\s+(~~)?([A-Z]+\d+[a-z]?)\s*[—–-]\s*(.+?)(?:~~)?\s*(✅|HOTOVO)?\s*$",
@@ -69,7 +72,7 @@ DETAIL_RE = re.compile(r"\*\*Detail\*\*[:\s]+(.+?)(?=\n\n|\n-\s*\[|\n\*\*|\Z)", 
 CHECK_RE = re.compile(r"^-\s+\[([ xX])\]\s+(.+)$", re.MULTILINE)
 
 
-# === Slugify (F0.3) ===
+# === Slugify (F0.3 — legacy, used only for project slug, not task filename) ===
 def slugify(title: str) -> str:
     if not title:
         return ""
@@ -81,6 +84,31 @@ def slugify(title: str) -> str:
         cut = s[:MAX_SLUG_LEN].rsplit("-", 1)[0]
         s = cut if cut else s[:MAX_SLUG_LEN]
     return s.strip("-")
+
+
+# === Sanitize title (F-fundamental refactor — used for task filename) ===
+def sanitize_title(title: str) -> str:
+    """FS-safe rendering of human-readable title.
+
+    Mirrors `scripts/rename_tasks_to_human_filenames.sanitize_title`.
+    Diacritics + emoji preserved; only FS-hostile chars replaced.
+    """
+    if not title:
+        return ""
+    s = title
+    s = s.replace("\n", " ").replace("\t", " ").replace("\r", " ")
+    s = s.replace(":", " ")
+    s = s.replace("/", " -")
+    s = s.replace("\\", " -")
+    s = s.replace("?", "")
+    s = s.replace("*", "")
+    s = s.replace("<", "\u2039")
+    s = s.replace(">", "\u203a")
+    s = s.replace("|", "-")
+    s = s.replace('"', "'")
+    s = "".join(ch for ch in s if ord(ch) >= 0x20)
+    s = re.sub(r" +", " ", s).strip()
+    return s
 
 
 # === Status mapping ===
@@ -288,9 +316,14 @@ def parse_hub(text: str) -> tuple[list[ParsedTask], dict[str, ParsedTask]]:
 
 # === File generation ===
 def task_filename(task_id: str, title: str) -> str:
-    slug_t = slugify(title)
-    if slug_t:
-        return f"{task_id}-{slug_t}.md"
+    """Human-readable filename: `<ID> — <sanitize(title)>.md`.
+
+    Post F-fundamental refactor — matches the convention enforced by
+    `scripts/rename_tasks_to_human_filenames.py`.
+    """
+    sanitized = sanitize_title(title)
+    if sanitized:
+        return f"{task_id}{SEPARATOR}{sanitized}.md"
     return f"{task_id}.md"
 
 
@@ -325,6 +358,7 @@ def render_task_file(task: ParsedTask, project_slug: str, source_default: str = 
         f'title: "{title_escaped}"',
         f'project: "[[{hub_target}]]"',
         f"slug: {project_slug}",
+        f"aliases: [{task.task_id}]",
         f"status: {task.status}",
         f"ice_i: {task.ice_i}",
         f"ice_c: {task.ice_c}",
@@ -366,11 +400,11 @@ def render_task_file(task: ParsedTask, project_slug: str, source_default: str = 
     else:
         body_lines.append("## Operativní kroky")
         if task.checkboxes:
-            for done, text in task.checkboxes:
+            for idx, (done, text) in enumerate(task.checkboxes, start=1):
                 marker = "x" if done else " "
-                body_lines.append(f"- [{marker}] {text}")
+                body_lines.append(f"- [{marker}] **{task.task_id}-{idx}** {text}")
         else:
-            body_lines.append("- [ ] (doplň operativní kroky)")
+            body_lines.append(f"- [ ] **{task.task_id}-1** (doplň operativní kroky)")
         body_lines.append("")
         body_lines.extend([
             "## Poznámky / log",

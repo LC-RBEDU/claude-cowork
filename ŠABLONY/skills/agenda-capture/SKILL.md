@@ -1,6 +1,6 @@
 ---
 name: agenda-capture
-description: "Capture into MrLUC Second Brain v2 vault: paste, files, or new files in OBSIDIAN/01-INBOX/. Creates task files in 02-PROJEKTY/<slug>/tasks/<ID>-<slug>.md (file-per-task + frontmatter), archives source to 07-ARCHIV/inbox-processed/. Triggers: capture, zapiš si, INBOX. ALWAYS preview before write. Preserve subtask checklisty + source links."
+description: "Capture into MrLUC Second Brain v2 vault: paste, files, or new files in OBSIDIAN/01-INBOX/. Creates task files in 02-PROJEKTY/<slug>/tasks/<ID> — <Title>.md (file-per-task + frontmatter, em-dash U+2014, human-readable filename), archives source to 07-ARCHIV/inbox-processed/. Triggers: capture, zapiš si, INBOX. ALWAYS preview before write. Preserve subtask checklisty (číslované **<ID>-N**) + source links."
 ---
 
 # agenda-capture (v2)
@@ -12,7 +12,7 @@ Cesta: `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN
 
 ## Architektura v2 (povinný kontext)
 
-- **TASK** = vlastní `.md` v `02-PROJEKTY/<slug>/tasks/<ID>-<slugify(title)>.md` se YAML frontmatterem (SSOT) a body s checkboxy.
+- **TASK** = vlastní `.md` v `02-PROJEKTY/<slug>/tasks/<ID> — <sanitize(title)>.md` se YAML frontmatterem (SSOT) a body s checkboxy. Filename = ID + em-dash U+2014 (` — `) + sanitizovaný titulek (diakritika, emoji zachovány).
 - **PROJECT HUB** = `02-PROJEKTY/<HubName>.md` s charter sekcemi a embedy `![[All-tasks.base#ProjectKanban]]` (Bases plugin).
 - **MATERIAL** = `02-PROJEKTY/<slug>/materials/<title>.md` (project-specific) nebo `05-RESOURCES/<kategorie>/<title>.md` (cross-project), s frontmatter `projects:` array (M:N).
 - Konvence: `OBSIDIAN/00-System/Templates/konvence-a-slovnik.md`, `task-convention.md`, `task-template.md`, `material-template.md`, `id-generation-spec.md`, `filename-normalization.md`.
@@ -58,7 +58,7 @@ Cesta: `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN
 ### 5. Generuj ID a filename
 
 - **ID:** scanuj `02-PROJEKTY/<slug>/tasks/*` + `07-ARCHIV/tasks-done/<slug>/*`, najdi max ID s prefixem (S, AF, F, RBU, …), použij `+1`. Algoritmus: `00-System/Templates/id-generation-spec.md`.
-- **Filename:** `<ID>-<slugify(title)>.md` (max 50 chars, latin-only, kebab-case dle `filename-normalization.md`).
+- **Filename:** `<ID> — <sanitize(title)>.md` (em-dash U+2014 obklopený mezerou; diakritika + emoji zachovány; FS-hostile chars sanitizovány — viz `filename-normalization.md`). Příklady: `S2 — Hierarchie cílů obrat vs. ziskovost vs. dopad.md`, `OPS2 — Nahrát EDU news ♻️ weekly (čtvrtek).md`.
 
 ### 6. Frontmatter (povinný)
 
@@ -66,8 +66,10 @@ Cesta: `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN
 ---
 id: <ID>
 type: task
-project: "[[<slug>]]"
+title: "<lidsky čitelný titulek bez ID prefixu>"
+project: "[[<HubFilename>]]"
 slug: <slug>
+aliases: [<ID>]
 status: Next | ASAP | Backlog | Waiting | Doing | Done
 ice_i: <1-10>
 ice_c: <1-10>
@@ -83,6 +85,8 @@ blocked_by: []
 ---
 ```
 
+`aliases: [<ID>]` zajišťuje, že `[[<ID>]]` z body resolvuje na soubor i po případné změně titulu.
+
 ### 7. Body šablony
 
 ```markdown
@@ -92,12 +96,14 @@ blocked_by: []
 **Detail:** <kontext z capture>
 
 ## Operativní kroky
-- [ ] <subtask 1>
-- [ ] <subtask 2>
+- [ ] **<ID>-1** <subtask 1>
+- [ ] **<ID>-2** <subtask 2>
 
 ## Poznámky / log
 - <YYYY-MM-DD>: <poznámka>
 ```
+
+Subtasky musí mít prefix `**<ID>-N**` (1-indexed). Lze je referencovat z chatu / jiných tasků jako `<ID>-N` (např. „viz PD4-3").
 
 ### 8. Preview PŘED zápisem
 

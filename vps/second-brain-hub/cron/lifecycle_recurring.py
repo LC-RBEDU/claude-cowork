@@ -2,8 +2,12 @@
 """F7.2: Recurring task rotation — when a recurring task hits status: Done,
 archive current instance and create the next one with reset body + new deadline.
 
-Recurring tasks live as `02-PROJEKTY/<slug>/tasks/<ID>.md` (no slugify suffix —
-fixed filename per recurring task ID).
+Recurring tasks live as `02-PROJEKTY/<slug>/tasks/<ID> — <Title>.md`
+(human-readable filename, em-dash U+2014; title is stable across rotations
+so the filename does not change). Recurring detection is done via the
+`recurring:` block in frontmatter (NOT via filename pattern — works
+regardless of whether the file is named `<ID>.md` (legacy) or
+`<ID> — <Title>.md` (post-F-fundamental refactor).
 
 Frontmatter:
     recurring:
@@ -15,17 +19,18 @@ Frontmatter:
     extra_module: edu_news             # optional, calls lifecycle_extra_<module>.py clear
 
 Workflow per Done recurring task:
-1. Move current `<ID>.md` to `07-ARCHIV/tasks-done/<slug>/<ID>-<YYYY-MM-DD>.md`
-   (keeps history of past instances)
-2. Compute next deadline from frequency rule
-3. Create new `<ID>.md` with:
+1. Move current file (e.g. `<ID> — <Title>.md`) to
+   `07-ARCHIV/tasks-done/<slug>/<ID>-<YYYY-MM-DD>.md` (rotation archive
+   keeps date-suffixed name so multiple instances coexist in history).
+2. Compute next deadline from frequency rule.
+3. Create new instance at the original `task.rel_path` with:
    - status: Waiting (or ASAP if waitUntil already passed)
    - waitUntil = next_deadline - 1 day
    - deadline = next_deadline
    - reset body sections (Operativní kroky, Poznámky / log) cleared, preserved sections kept
    - frontmatter `created` updated, `updated` = today
 4. If `extra_module: <name>` present, post-call `lifecycle_extra_<name>.py --reset`
-   (out of scope here — handled by separate scripts wired in crontab)
+   (out of scope here — handled by separate scripts wired in crontab).
 
 Idempotent — re-running on Already-rotated task does nothing (status no longer Done).
 """
@@ -116,8 +121,13 @@ def compute_next_deadline(rec: dict, last_deadline: Optional[date], today: date)
     return today + timedelta(days=7)
 
 
-def reset_body(body: str, reset_sections: list[str], preserve_sections: list[str]) -> str:
-    """Clear specified ## sections, keep preserved ones."""
+def reset_body(body: str, reset_sections: list[str], preserve_sections: list[str], task_id: str = "") -> str:
+    """Clear specified ## sections, keep preserved ones.
+
+    Subtask placeholder in `## Operativní kroky` uses the convention
+    `**<ID>-N**` prefix (1-indexed). If `task_id` is empty, falls back to
+    unprefixed placeholder.
+    """
     sections: dict[str, list[str]] = {}
     current = "_HEADER"
     sections[current] = []
@@ -135,10 +145,10 @@ def reset_body(body: str, reset_sections: list[str], preserve_sections: list[str
             out_lines.extend(lines)
             continue
         if sec in reset_sections:
-            # Keep header, clear content
             out_lines.append(sec)
             if sec == "## Operativní kroky":
-                out_lines.append("- [ ] (next instance — doplň operativní kroky)")
+                prefix = f"**{task_id}-1** " if task_id else ""
+                out_lines.append(f"- [ ] {prefix}(next instance — doplň operativní kroky)")
             elif sec == "## Poznámky / log":
                 out_lines.append(f"- {datetime.now(TZ).date().isoformat()}: New recurring instance.")
             out_lines.append("")
@@ -196,7 +206,7 @@ def main() -> None:
             "## Poznámky / log",
         ]
         preserve_sections = rec.get("preserve_body_sections") or []
-        new_body = reset_body(task.body, reset_sections, preserve_sections)
+        new_body = reset_body(task.body, reset_sections, preserve_sections, task_id=task_id)
 
         # 4. Build new frontmatter
         new_fm = dict(task.frontmatter)

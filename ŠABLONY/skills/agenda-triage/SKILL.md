@@ -1,6 +1,6 @@
 ---
 name: agenda-triage
-description: "INBOX triage in MrLUC Second Brain v2 vault, pending batch approval from cron, or re-priority. Triggers: projeď inbox, schval pending triáž, apply batch, udělejme triage. Modes: BATCH, DEEP, PENDING (read 00-System/Triage-Pending/*.json with v2 schema). Creates task files in 02-PROJEKTY/<slug>/tasks/, archives to 07-ARCHIV/inbox-processed/. ALWAYS preview before write."
+description: "INBOX triage in MrLUC Second Brain v2 vault, pending batch approval from cron, or re-priority. Triggers: projeď inbox, schval pending triáž, apply batch, udělejme triage. Modes: BATCH, DEEP, PENDING (read 00-System/Triage-Pending/*.json with v2 schema). Creates task files in 02-PROJEKTY/<slug>/tasks/<ID> — <Title>.md (human-readable filename, em-dash U+2014; subtasks číslované **<ID>-N**), archives to 07-ARCHIV/inbox-processed/. ALWAYS preview before write."
 ---
 
 # agenda-triage (v2)
@@ -58,7 +58,7 @@ Cron označuje takový návrh `requires_deep_analysis: true`, `kind: "deep"`, `p
 - Capture: n8n `workspace-sent-to-inbox.json` (Workspace `lukas@redbuttonedu.cz`, frontmatter `source: sent`)
 - Cron `triage_run.py` + `triage_commitments.py`: závazky (`kind: commitment`) nebo fallback u mailu bez závazku
 - Každý návrh v batchi má **`proposalType`**:
-  - `add_task` — vytvoří `02-PROJEKTY/<slug>/tasks/<ID>-<slug>.md`
+  - `add_task` — vytvoří `02-PROJEKTY/<slug>/tasks/<ID> — <Title>.md` (em-dash U+2014, sanitized title) + frontmatter `aliases: [<ID>]` + očíslované subtasky `**<ID>-N**`
   - `update_task` — patchne frontmatter / body existujícího task souboru
   - `archive_only` — jen přesune source do archivu
 - Souhrn: `00-System/Triage-Pending/YYYY-MM-DD-HHMM-summary.md` — české odrážky po souborech (typ, projekt, archiv po schválení)
@@ -92,12 +92,14 @@ Pro každou položku (přímo spuštěnou v DEEP módu **nebo** auto-routnutou z
 ```json
 {
   "proposalType": "add_task" | "update_task" | "archive_only" | "deep_analysis",
-  "target_path": "02-PROJEKTY/<slug>/tasks/<ID>-<slug>.md",
+  "target_path": "02-PROJEKTY/<slug>/tasks/<ID> — <Title>.md",
   "frontmatter": {
     "id": "RBU30",
     "type": "task",
-    "project": "[[rb-universe-development]]",
+    "title": "Titulek lidsky čitelný",
+    "project": "[[RB Universe]]",
     "slug": "rb-universe-development",
+    "aliases": ["RBU30"],
     "status": "Next",
     "ice_i": 7, "ice_c": 8, "ice_e": 5,
     "materials": ["[[some-material]]"],
@@ -114,6 +116,8 @@ Pro každou položku (přímo spuštěnou v DEEP módu **nebo** auto-routnutou z
   "deep_reasons": []
 }
 ```
+
+Body návrhu musí mít subtasky se prefixem `**<ID>-N**` v `## Operativní kroky`.
 
 7. Ukaž změny podle `proposalType`. **Nikdy neaplikuj bez explicitního „ano" / „apply"**.
 8. Po schválení:

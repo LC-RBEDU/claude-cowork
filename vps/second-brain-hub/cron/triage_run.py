@@ -108,20 +108,41 @@ def load_mapping(vault: DriveVault) -> dict[str, dict]:
     return out
 
 
-def _slugify_filename(text: str, max_len: int = 50) -> str:
-    """Filename slugify (latin only, kebab-case). See 00-System/Templates/filename-normalization.md."""
-    try:
-        from unidecode import unidecode  # type: ignore
-        s = unidecode(text or "")
-    except Exception:
-        s = text or ""
-    s = s.lower()
-    s = re.sub(r"[^a-z0-9]+", " ", s)
-    s = re.sub(r"\s+", "-", s.strip())
-    if len(s) > max_len:
-        cut = s[:max_len].rsplit("-", 1)[0]
-        s = cut if cut else s[:max_len]
-    return s.strip("-") or "task"
+EM_DASH = "\u2014"
+SEPARATOR = f" {EM_DASH} "
+
+
+def _sanitize_title(title: str) -> str:
+    """Filesystem + Google-Drive safe rendering of a human-readable title.
+
+    Mirrors `scripts/rename_tasks_to_human_filenames.sanitize_title` and the
+    spec in `00-System/Templates/filename-normalization.md`. Preserves
+    diacritics and emoji; only replaces FS-hostile chars.
+    """
+    if not title:
+        return ""
+    s = title
+    s = s.replace("\n", " ").replace("\t", " ").replace("\r", " ")
+    s = s.replace(":", " ")
+    s = s.replace("/", " -")
+    s = s.replace("\\", " -")
+    s = s.replace("?", "")
+    s = s.replace("*", "")
+    s = s.replace("<", "\u2039")
+    s = s.replace(">", "\u203a")
+    s = s.replace("|", "-")
+    s = s.replace('"', "'")
+    s = "".join(ch for ch in s if ord(ch) >= 0x20)
+    s = re.sub(r" +", " ", s).strip()
+    return s
+
+
+def _task_filename(task_id: str, title: str) -> str:
+    """Human-readable task filename: `<ID> — <Title>.md`."""
+    sanitized = _sanitize_title(title or "")
+    if sanitized:
+        return f"{task_id}{SEPARATOR}{sanitized}.md"
+    return f"{task_id}.md"
 
 
 def next_id_for_slug(vault: DriveVault, slug: str, prefix: str) -> str:
@@ -165,7 +186,7 @@ def build_v2_proposal(
     entry = mapping.get(slug, {})
     prefix = entry.get("id_prefix") or _default_prefix_for(slug)
     new_id = next_id_for_slug(vault, slug, prefix)
-    filename = f"{new_id}-{_slugify_filename(title)}.md"
+    filename = _task_filename(new_id, title)
     target_path = f"02-PROJEKTY/{slug}/tasks/{filename}"
     hub_basename = (entry.get("hub_filename") or "").removesuffix(".md") or slug
 
@@ -173,7 +194,7 @@ def build_v2_proposal(
         f"# {new_id} — {title}\n\n"
         f"**Z:** {source or rel}\n\n"
         f"## Operativní kroky\n"
-        f"- [ ] (doplň při schválení)\n\n"
+        f"- [ ] **{new_id}-1** (doplň při schválení)\n\n"
         f"## Poznámky / log\n"
         f"- {datetime.now(TZ).date().isoformat()}: Vytvořeno z INBOX `{rel}` (triage_run.py)\n"
     )
@@ -187,6 +208,7 @@ def build_v2_proposal(
             "title": title,
             "project": f"[[{hub_basename}]]",
             "slug": slug,
+            "aliases": [new_id],
             "status": priority,
             "ice_i": ice[0],
             "ice_c": ice[1],
