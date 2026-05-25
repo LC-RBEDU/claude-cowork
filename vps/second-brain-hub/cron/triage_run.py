@@ -36,6 +36,7 @@ from triage_commitments import (  # noqa: E402
     sent_archive_only_proposal,
     sent_business_action_proposal,
 )
+from triage_complexity import is_complex_source  # noqa: E402
 
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 
@@ -45,7 +46,15 @@ PROPOSAL_TYPE_LABELS = {
     "add_task": "Vytažení úkolu",
     "update_task": "Změna stavu úkolu / projektu",
     "archive_only": "Přesun do HOTOVO (bez nového úkolu)",
+    "deep_analysis": "Komplexní materiál — DEEP analysis required",
 }
+
+DEEP_PLACEHOLDER_BODY = (
+    "DEEP analysis required — open in agenda-triage DEEP mode.\n\n"
+    "Tento návrh je meta-proposal: zdroj je komplexní (delší materiál, "
+    "více headingů / akčních bodů, nebo Sembly přepis). Po otevření v "
+    "DEEP režimu skill rozseká zdroj na konkrétní tasky a materiály."
+)
 
 SLUG_HINTS = [
     ("ninjabot", "pipedrive-a-dalsi-nastroje"),
@@ -206,6 +215,40 @@ def _default_prefix_for(slug: str) -> str:
         return slug[:2].upper() or "X"
     return "".join(p[0].upper() for p in parts[:3] if p)
 
+
+def build_deep_proposal(
+    rel: str,
+    title: str,
+    slug: str,
+    reasons: list[str],
+) -> dict:
+    """Meta-proposal pro komplexní zdroj — DEEP route v agenda-triage.
+
+    Záměrně nemá ``target_path`` ani ``frontmatter`` — apply z PENDINGu na
+    něj nesmí sáhnout. Skill `agenda-triage` v PENDING režimu detekuje
+    ``requires_deep_analysis: true`` a otevře DEEP flow s pre-loaded
+    ``sourceFile``.
+    """
+    return {
+        "action": "deep_analysis",
+        "proposalType": "deep_analysis",
+        "kind": "deep",
+        "requires_deep_analysis": True,
+        "deep_reasons": list(reasons),
+        "title": title,
+        "suggestedProj": slug,
+        "priority": "Next",
+        "ice": [7, 6, 5],
+        "target_path": None,
+        "frontmatter": None,
+        "body": DEEP_PLACEHOLDER_BODY,
+        "sourceFile": rel,
+        "archiveAfterApply": True,
+        "notes": "Komplexní materiál — DEEP analysis required. Důvody: "
+        + "; ".join(reasons),
+        "subtasks": [],
+    }
+
 # How much of each file to read when checking the ZPRACOVÁNO marker.
 _HEADER_PROBE_BYTES = 400
 
@@ -358,6 +401,15 @@ def main() -> None:
         pid += 1
         title = title_from_file(name, body)
         slug = guess_proj(body, rel)
+
+        complex_, reasons = is_complex_source(rel, body)
+        if complex_:
+            deep = build_deep_proposal(rel=rel, title=title, slug=slug, reasons=reasons)
+            deep["id"] = f"p{pid}"
+            proposals.append(deep)
+            print("deep candidate:", rel, "reasons=", reasons)
+            continue
+
         v2_proposal = build_v2_proposal(
             vault=vault,
             rel=rel,
@@ -399,12 +451,27 @@ def main() -> None:
     out_rel = f"00-System/Triage-Pending/{batch_id}-batch.json"
     vault.write_json(out_rel, batch)
 
+    deep_proposals = [pr for pr in proposals if pr.get("requires_deep_analysis")]
+    simple_count = len(proposals) - len(deep_proposals)
+
     summary_rel = f"00-System/Triage-Pending/{batch_id}-summary.md"
     lines = [
         f"# Triage batch {batch_id}\n",
-        f"**Počet návrhů:** {len(proposals)}\n",
-        "## Návrhy\n",
+        f"**Počet návrhů:** {len(proposals)} "
+        f"(simple: {simple_count}, DEEP: {len(deep_proposals)})\n",
     ]
+    if deep_proposals:
+        lines.append("## DEEP candidates\n")
+        lines.append(
+            "Tyto zdroje vyžadují DEEP analysis (skill `agenda-triage` "
+            "v DEEP režimu) — z jednoho zdroje vznikne víc tasků/materiálů.\n"
+        )
+        for pr in deep_proposals:
+            reasons = pr.get("deep_reasons") or []
+            reasons_s = "; ".join(reasons) if reasons else "—"
+            lines.append(f"- `{pr.get('sourceFile', '')}` — {reasons_s}")
+        lines.append("")
+    lines.append("## Návrhy\n")
     for pr in proposals:
         ptype = pr.get("proposalType") or "add_task"
         label = PROPOSAL_TYPE_LABELS.get(ptype, ptype)
