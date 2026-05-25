@@ -101,7 +101,6 @@ class ProjectInfo:
     status: str
     aliases: list[str]
     area: str | None = None
-    owner: str | None = None
     open_tasks_count: int = 0
     updated: str | None = None
 
@@ -113,7 +112,6 @@ class ProjectInfo:
             "status": self.status,
             "aliases": self.aliases,
             "area": self.area,
-            "owner": self.owner,
             "open_tasks_count": self.open_tasks_count,
             "updated": self.updated,
         }
@@ -182,7 +180,6 @@ def collect_projects(vault: Path) -> list[ProjectInfo]:
             status=str(fm.get("status") or "active"),
             aliases=_list_str(fm.get("aliases")),
             area=fm.get("area"),
-            owner=fm.get("owner"),
             updated=_date_str(fm.get("updated")),
         ))
     return out

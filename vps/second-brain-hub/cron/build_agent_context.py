@@ -118,7 +118,6 @@ def collect_projects(vault: DriveVault) -> list[dict]:
             "status": str(fm.get("status") or "active"),
             "aliases": _list_str(fm.get("aliases")),
             "area": fm.get("area"),
-            "owner": fm.get("owner"),
             "open_tasks_count": 0,
             "updated": _date_str(fm.get("updated")),
         })
