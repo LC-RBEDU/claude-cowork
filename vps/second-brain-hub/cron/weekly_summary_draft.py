@@ -17,7 +17,7 @@ if str(_LIB) not in sys.path:
 
 from drive_io import DriveVault, DriveNotFoundError, credentials_from_env  # noqa: E402
 
-INBOX_SUBDIRS = ("slack", "sembly", "email", "daily")
+INBOX_SUBDIRS = ("slack", "sembly", "email", "daily", "Clippings")
 TASKS_REL = "00-System/dashboard-tasks-source.json"
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 

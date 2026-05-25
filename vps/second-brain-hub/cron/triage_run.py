@@ -39,7 +39,7 @@ from triage_commitments import (  # noqa: E402
 
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 
-INBOX_SUBDIRS = ("slack", "sembly", "email", "daily")
+INBOX_SUBDIRS = ("slack", "sembly", "email", "daily", "Clippings")
 
 PROPOSAL_TYPE_LABELS = {
     "add_task": "Vytažení úkolu",
@@ -238,6 +238,8 @@ def guess_proj(text: str, rel_path: str) -> str:
     if "email" in parts:
         return "finance"
     if "daily" in parts:
+        return "firemni-procesy"
+    if "Clippings" in parts:
         return "firemni-procesy"
     return "firemni-procesy"
 

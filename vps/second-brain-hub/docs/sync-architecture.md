@@ -5,7 +5,7 @@
 ```mermaid
 flowchart LR
   n8n["n8n workflows<br/>(Slack / Sembly / Email)"]
-  driveInbox["Drive<br/>01-INBOX/{slack,sembly,email,daily}/"]
+  driveInbox["Drive<br/>01-INBOX/{slack,sembly,email,daily,Clippings}/"]
   cron["coolify-dev<br/>supercronic kontejner<br/>(stateless)"]
   driveVault["Drive<br/>OBSIDIAN root<br/>1YTTsTWFzrH6cNcZfvO_R-rhmSyFvlfz-"]
   driveDesktop["Google Drive Desktop<br/>(Mac mirror)"]

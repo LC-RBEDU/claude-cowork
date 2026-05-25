@@ -23,7 +23,7 @@ flowchart LR
 | **coolify-dev** | Docker stateless: lifecycle scripts (`done_from_checkboxes`, `waiting_to_asap`, `overdue_flag`, `archive_done_tasks`, `recurring`), `triage_run.py`, `lifecycle_extra_edu_news.py`, `build_agent_context.py` — vše přes Drive API + CAS |
 | **Mac** | Obsidian + Bases plugin čte frontmatter live, agent-context.json sync přes Drive Desktop |
 
-INBOX = `OBSIDIAN/01-INBOX/{slack,sembly,email,email/sent,daily}/`.
+INBOX = `OBSIDIAN/01-INBOX/{slack,sembly,email,email/sent,daily,Clippings}/`.
 
 ## Datový model v2 (file-per-task)
 
