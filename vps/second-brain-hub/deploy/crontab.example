@@ -1,19 +1,26 @@
-# second-brain-hub — Europe/Prague
+# second-brain-hub v2 example crontab (legacy local-mirror reference, NOT used in Coolify)
+# Production crontab: deploy/crontab (stateless, Drive API).
 SHELL=/bin/bash
 VAULT_PATH=/var/sync/mrluc
 REPO=/opt/second-brain-hub
 
-# Po–Pá triage + rebuild
-0 7,14,20 * * 1-5 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/triage_run.py >> /var/log/sb-triage.log 2>&1
-5 7,14,20 * * 1-5 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/build_dashboard.py >> /var/log/sb-build.log 2>&1
-10 7 * * 1-5 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/edu_news_refresh.py >> /var/log/sb-edu.log 2>&1
+# Daily lifecycle
+0 3 * * *     cd $REPO && python3 cron/lifecycle_done_from_checkboxes.py >> /var/log/sb-lifecycle.log 2>&1
+10 3 * * *    cd $REPO && python3 cron/lifecycle_waiting_to_asap.py >> /var/log/sb-lifecycle.log 2>&1
+20 3 * * *    cd $REPO && python3 cron/lifecycle_overdue_flag.py >> /var/log/sb-lifecycle.log 2>&1
+0 4 * * *     cd $REPO && python3 cron/archive_done_tasks.py >> /var/log/sb-lifecycle.log 2>&1
+30 4 * * *    cd $REPO && python3 cron/lifecycle_recurring.py >> /var/log/sb-lifecycle.log 2>&1
 
-# So–Ne jen ranní běh
-0 7 * * 0,6 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/triage_run.py >> /var/log/sb-triage.log 2>&1
-5 7 * * 0,6 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/build_dashboard.py >> /var/log/sb-build.log 2>&1
-10 7 * * 0,6 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/edu_news_refresh.py >> /var/log/sb-edu.log 2>&1
+# Po-Pa triage
+0 7,14,20 * * 1-5  cd $REPO && python3 cron/triage_run.py >> /var/log/sb-triage.log 2>&1
+0 7 * * 0,6        cd $REPO && python3 cron/triage_run.py >> /var/log/sb-triage.log 2>&1
 
-# Ne vecer: weekly + retro draft
-0 20 * * 0 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/weekly_summary_draft.py >> /var/log/sb-weekly.log 2>&1
-10 20 * * 0 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/retro_draft.py >> /var/log/sb-retro.log 2>&1
-15 20 * * 0 cd $REPO && VAULT_PATH=$VAULT_PATH python3 cron/build_dashboard.py >> /var/log/sb-build.log 2>&1
+# EDU news (every workday)
+10 7 * * *    cd $REPO && python3 cron/lifecycle_extra_edu_news.py >> /var/log/sb-edu.log 2>&1
+
+# Sunday weekly
+0 20 * * 0    cd $REPO && python3 cron/weekly_summary_draft.py >> /var/log/sb-weekly.log 2>&1
+10 20 * * 0   cd $REPO && python3 cron/retro_draft.py >> /var/log/sb-retro.log 2>&1
+
+# Agent context (every 15 min during workhours)
+*/15 7-22 * * *   cd $REPO && python3 cron/build_agent_context.py >> /var/log/sb-agent-context.log 2>&1

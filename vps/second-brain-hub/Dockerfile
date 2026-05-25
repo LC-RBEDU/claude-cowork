@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY lib/ /app/lib/
 COPY cron/ /app/cron/
-COPY web/ /app/web/
 COPY deploy/crontab /app/crontab
 COPY deploy/entrypoint.sh /entrypoint.sh
 
