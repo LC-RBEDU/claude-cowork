@@ -23,7 +23,7 @@ description: "Use when user works on a MrLUC Second Brain v2 project — 'jdeme 
 
 1. **PRIMARY:** `OBSIDIAN/00-System/agent-context.json` → najdi `projects[]` podle `slug`, vyextrahuj briefing (status, area, owner, open_tasks_count, top tasks ze `top_priority` filtered by slug)
 2. (1× per session) `OBSIDIAN/00-System/Memory/about-me.md`
-3. Hub `OBSIDIAN/02-PROJEKTY/<HubName>.md` — frontmatter (slug, status, area, people, boundaries, metrics_kpi, open_tasks_count) + body (Cíl, Scope, Kontext, Otevřené otázky)
+3. Hub `OBSIDIAN/02-PROJEKTY/<HubName>.md` — frontmatter (slug, status, area, owner, open_tasks_count) + body (Cíl, Scope, Lidé / spolupráce, Hranice / vymezení, Metriky / KPI, Kontext, Otevřené otázky)
 4. Tasky `OBSIDIAN/02-PROJEKTY/<slug>/tasks/*.md` — frontmatter každého souboru (id, status, ICE, deadline, waitUntil, materials, source)
 5. Outputs `OBSIDIAN/02-PROJEKTY/<slug>/` (mimo `tasks/` a `materials/`) — soubory výstupů
 6. Materials `OBSIDIAN/02-PROJEKTY/<slug>/materials/` + cross-project `05-RESOURCES/` (přes `materials:` array v task frontmatteru)
@@ -41,6 +41,12 @@ Status: <active/paused> | Owner: <name> | Area: <area>
 🎯 CÍL: <z body Cíl a hodnota>
 
 📋 SCOPE (In/Out): <z body Scope>
+
+👥 LIDÉ: <z body Lidé / spolupráce — top 3 wikilinks + role>
+
+🔀 HRANICE: <z body Hranice / vymezení>
+
+📊 METRIKY: <z body Metriky / KPI>
 
 📎 KONTEXT (zkráceně z hubu)
 
