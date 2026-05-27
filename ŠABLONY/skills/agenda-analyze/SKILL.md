@@ -27,6 +27,8 @@ description: "Analyzuje materiály (URL, vault) k tématu/úkolu. Výstup: struk
 6. **Akční závěr** — sekce **Co s tím** (konkrétní kroky / návrhy do hubu), pak **Otevřené otázky**.
 7. **Žádná fixní šablona** — vždy zvol tvar podle toho, *co* analyzuješ.
 
+**Filtr pro Action items:** Vault je single-user (Lukáš). Action items extrahuj **pouze pro Lukáše**. Cizí akce patří do "Kontext" / "Otevřené otázky" sekce výstupu, ne do tasků. (Hraniční: pokud Lukáš čeká na cizí výstup → status Waiting + waitUntil.)
+
 ## Workflow
 
 ### 1. Urči projekt + typ materiálu
@@ -101,8 +103,8 @@ V task `.md` frontmatteru je material referencován v `materials:` array (bare a
 - `## TL;DR`
 - `## Kontext` (2–3 bullets)
 - `## Rozhodnutí` (bullets)
-- `## Akční body` — tabulka: Kdo | Co | Do kdy (pokud známo)
-- `## Co patří do hubu` (návrhy úkolů / materiálů — bullets, ne automatický zápis)
+- `## Akční body` — tabulka: Kdo | Co | Do kdy (pokud známo). Slouží jen pro záznam meetingu — **task soubory v `02-PROJEKTY/.../tasks/` se vytváří jen pro řádky, kde "Kdo" = Lukáš** (případně `Waiting` pokud Lukáš čeká na cizí dodání).
+- `## Co patří do hubu` (návrhy úkolů / materiálů — bullets, ne automatický zápis; pouze Lukášovy akce, viz Filtr pro Action items výše)
 - Volitelně mermaid `flowchart` pro proces, o kterém se mluvilo
 - `## Co s tím` → `## Otevřené otázky`
 

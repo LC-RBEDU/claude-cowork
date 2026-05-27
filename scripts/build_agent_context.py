@@ -38,6 +38,12 @@ except ImportError:
     )
     sys.exit(1)
 
+_LIB = Path(__file__).resolve().parents[1] / "vps" / "second-brain-hub" / "lib"
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+
+from today_priority import select_top_priority  # noqa: E402
+
 DEFAULT_VAULT = Path(
     os.environ.get(
         "SECOND_BRAIN_VAULT",
@@ -255,8 +261,7 @@ def build_snapshot(vault: Path) -> dict:
         p.open_tasks_count = open_count_by_slug.get(p.slug, 0)
 
     open_tasks = [t for t in active_tasks if t.status != "Done"]
-    open_tasks.sort(key=lambda t: -t.priority_score)
-    top_priority = open_tasks[:15]
+    top_priority_today, top_priority = select_top_priority(open_tasks, today)
 
     week_ago = today - timedelta(days=7)
     recently_done = []
@@ -302,7 +307,19 @@ def build_snapshot(vault: Path) -> dict:
             "recurring_pending_rotation": len(recurring_done),
         },
         "projects": [p.to_dict() for p in projects],
-        "top_priority": [t.to_dict() for t in top_priority],
+        "priority_rules": {
+            "base": "priority_score = (ice_i * ice_c) / ice_e",
+            "today_score": "priority_score + urgency_bonus(deadline)",
+            "urgency_bonus": {
+                "overdue": 35,
+                "deadline_today": 30,
+                "deadline_tomorrow": 15,
+            },
+            "top_eligible": "ASAP always; Next only when no open ASAP; never Waiting/Backlog",
+            "sort": "today_score DESC",
+        },
+        "top_priority_today": top_priority_today,
+        "top_priority": top_priority,
         "recently_done": [t.to_dict() for t in recently_done[:25]],
         "upcoming_deadlines": [t.to_dict() for t in upcoming],
         "recurring_pending": [t.to_dict() for t in recurring_done],

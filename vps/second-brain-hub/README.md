@@ -107,7 +107,7 @@ Logy: `docker logs <container>` nebo `docker exec … tail /var/log/second-brain
 ## Lifecycle pravidla v2
 
 ### Status flow
-`Backlog → Next → Doing → Done` (happy path)
+`Backlog → Next → ASAP → Done` (happy path)
 `Next → Waiting (waitUntil) → ASAP → Done` (čekání s reaktivací)
 `Next → Done (cancel reason v body)` (zrušeno bez archivu)
 

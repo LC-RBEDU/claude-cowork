@@ -26,6 +26,7 @@ from task_io import (  # noqa: E402
     parse_iso_date,
     parse_task_text,
 )
+from today_priority import select_top_priority  # noqa: E402
 
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Prague"))
 OUTPUT_REL = "00-System/agent-context.json"
@@ -147,8 +148,7 @@ def main() -> None:
         p["open_tasks_count"] = open_count.get(p["slug"], 0)
 
     open_tasks = [t for t in active_dicts if t["status"] != "Done"]
-    open_tasks.sort(key=lambda t: -t.get("priority_score", 0))
-    top_priority = open_tasks[:15]
+    top_priority_today, top_priority = select_top_priority(open_tasks, today)
 
     week_ago = today - timedelta(days=7)
     recently_done = []
@@ -196,6 +196,18 @@ def main() -> None:
             "recurring_pending_rotation": len(recurring_done),
         },
         "projects": projects,
+        "priority_rules": {
+            "base": "priority_score = (ice_i * ice_c) / ice_e",
+            "today_score": "priority_score + urgency_bonus(deadline)",
+            "urgency_bonus": {
+                "overdue": 35,
+                "deadline_today": 30,
+                "deadline_tomorrow": 15,
+            },
+            "top_eligible": "ASAP always; Next only when no open ASAP; never Waiting/Backlog",
+            "sort": "today_score DESC",
+        },
+        "top_priority_today": top_priority_today,
         "top_priority": top_priority,
         "recently_done": recently_done[:25],
         "upcoming_deadlines": upcoming,

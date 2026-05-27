@@ -1,0 +1,290 @@
+{
+  "name": "Slack capture kanál → Cowork INBOX (with attachments)",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": ["message"],
+        "watchWorkspace": false,
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_PRIVATE_CAPTURE_CHANNEL_ID"
+        },
+        "options": {}
+      },
+      "id": "slack-trigger",
+      "name": "Slack: nová zpráva",
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Jen běžné zprávy s obsahem; přeskočí systémové subtype a prázdné pingy\nconst raw = $input.first().json;\nconst ev = raw.event || raw;\nif (!ev || (ev.type && ev.type !== 'message')) return [];\nconst skip = new Set([\n  'channel_join', 'channel_leave', 'group_join', 'message_changed', 'message_deleted',\n  'channel_topic', 'channel_purpose', 'channel_archive', 'channel_unarchive',\n  'pinned_item', 'unpinned_item', 'file_comment'\n]);\nif (ev.subtype && skip.has(ev.subtype)) return [];\nif (ev.subtype === 'bot_message') return [];\nif (!ev.channel) return [];\nconst hasText = ev.text && String(ev.text).trim().length > 0;\nconst files = Array.isArray(ev.files) ? ev.files : [];\nconst hasFiles = files.length > 0;\nconst hasAttachments = Array.isArray(ev.attachments) && ev.attachments.length > 0;\nif (!hasText && !hasFiles && !hasAttachments) return [];\nreturn [{ json: { channelId: ev.channel, slackEvent: ev, files } }];"
+      },
+      "id": "code-filter",
+      "name": "Filtrovat zprávy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "resource": "channel",
+        "operation": "get",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.channelId }}"
+        },
+        "options": {}
+      },
+      "id": "get-channel",
+      "name": "Slack: Channel info",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [640, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-files",
+              "leftValue": "={{ ($('Filtrovat zprávy').first().json.files || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-files",
+      "name": "Má přílohy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fan-out: 1 zpráva → N items, jeden per příloha\nconst pack = $('Filtrovat zprávy').first().json;\nconst e = pack.slackEvent;\nconst files = pack.files || [];\nconst date = new Date(parseFloat(e.ts) * 1000);\nconst ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\nreturn files.map((f, i) => {\n  const safeName = String(f.name || 'unnamed').replace(/[\\\\/]/g, '_');\n  const fileTag = f.id || `f${i}`;\n  return {\n    json: {\n      file: f,\n      ts,\n      targetName: `${ts}-${fileTag}-${safeName}`.substring(0, 200)\n    }\n  };\n});"
+      },
+      "id": "code-prepare-attachments",
+      "name": "Připrav přílohy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 480]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.file.url_private_download }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "http-download-attachment",
+      "name": "Stáhni přílohu (Slack auth)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1300, 480],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "={{ $json.targetName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm"
+        },
+        "options": {}
+      },
+      "id": "drive-upload-attachment",
+      "name": "Drive: Upload přílohy",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1520, 480],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "IKFHnIw3Csp8FHyI",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "uploadedAttachments",
+        "include": "allFields",
+        "options": {}
+      },
+      "id": "aggregate-attachments",
+      "name": "Aggregate přílohy",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1740, 480]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pack = $('Filtrovat zprávy').first().json;\nconst e = pack.slackEvent;\nconst channelId = pack.channelId;\nconst ch = $('Slack: Channel info').first().json;\nconst channelName = ch.name || channelId || 'unknown';\n\n// Defensive: Aggregate přílohy běží jen ve větvi 'má přílohy = true'\nlet uploadedAttachments = [];\ntry {\n  const agg = $('Aggregate přílohy').first();\n  if (agg && agg.json && Array.isArray(agg.json.uploadedAttachments)) {\n    uploadedAttachments = agg.json.uploadedAttachments;\n  }\n} catch (_) { /* žádné přílohy v této větvi */ }\n\nconst date = new Date(parseFloat(e.ts) * 1000);\nconst ts = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}-${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}`;\n\nconst ownText = (e.text && String(e.text).trim()) ? String(e.text) : '';\nconst attachments = Array.isArray(e.attachments) ? e.attachments : [];\nconst forwards = attachments.filter(a => a && (a.is_msg_unfurl || a.from_url || a.text || a.fallback));\n\nconst slugSrc = ownText || (forwards[0] && (forwards[0].text || forwards[0].fallback)) || 'zprava';\nconst textSlug = String(slugSrc).replace(/[^a-z0-9 ]/gi,'').trim().replace(/\\s+/g,'-').toLowerCase().substring(0, 50);\nconst filename = `${ts}-${channelName}-${textSlug || 'slack'}.md`.substring(0, 120);\n\nconst permalink = `https://slack.com/archives/${channelId}/p${String(e.ts).replace('.','')}`;\nconst threadNote = e.thread_ts && e.thread_ts !== e.ts ? `**Odpověď ve vlákně** (thread_ts: ${e.thread_ts})` : '';\n\nconst lines = [\n  `# #${channelName}`,\n  '',\n  `**Čas:** ${date.toLocaleString('cs-CZ')}`,\n  `**Uživatel (Slack ID):** ${e.user || '—'}`,\n  threadNote,\n  `**Odkaz:** ${permalink}`,\n  ''\n];\n\nif (ownText) {\n  lines.push('## Komentář', '', ownText, '');\n}\n\nif (forwards.length) {\n  lines.push(`## Forwardovaný obsah${forwards.length > 1 ? ` (${forwards.length})` : ''}`, '');\n  for (const a of forwards) {\n    const author = a.author_name || a.author_subname || '—';\n    const srcChannel = a.channel_name ? `#${a.channel_name}` : (a.channel_id || '');\n    const srcLink = a.from_url || '';\n    const srcTs = a.ts ? new Date(parseFloat(a.ts) * 1000).toLocaleString('cs-CZ') : '';\n    const body = String(a.text || a.fallback || '').replace(/^\\u200B+/, '').trim();\n    lines.push(`### ${author}${srcChannel ? ` v ${srcChannel}` : ''}${srcTs ? ` (${srcTs})` : ''}`);\n    if (srcLink) lines.push(`**Zdroj:** ${srcLink}`);\n    lines.push('');\n    lines.push(body || '_(prázdná příloha)_');\n    lines.push('');\n  }\n}\n\nif (uploadedAttachments.length) {\n  lines.push(`## Přílohy${uploadedAttachments.length > 1 ? ` (${uploadedAttachments.length})` : ''}`, '');\n  for (const a of uploadedAttachments) {\n    const link = a.webViewLink || '';\n    const name = a.name || '(bez jména)';\n    const mime = a.mimeType || '';\n    const sizeBytes = a.size ? parseInt(a.size, 10) : 0;\n    const sizeStr = sizeBytes ? (sizeBytes >= 1024*1024 ? `${(sizeBytes/1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(sizeBytes/1024))} kB`) : '';\n    const meta = [mime, sizeStr].filter(Boolean).join(', ');\n    lines.push(`- [${name}](${link})${meta ? ` — ${meta}` : ''}`);\n  }\n  lines.push('');\n}\n\nif (!ownText && !forwards.length && !uploadedAttachments.length) {\n  lines.push('## Text', '', '_(bez textu — v původní zprávě mohou být jen přílohy)_', '');\n}\n\nconst md = lines.join('\\n');\n\nreturn [{ json: { filename, content: md } }];"
+      },
+      "id": "format-md",
+      "name": "Format → Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "createFromText",
+        "content": "={{ $json.content }}",
+        "name": "={{ $json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1bHjE9pEjKh3HOwVwjCH3V8t74-8FTNIm"
+        },
+        "options": {}
+      },
+      "id": "save-to-drive",
+      "name": "Drive: Save .md to INBOX/slack/",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2180, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "IKFHnIw3Csp8FHyI",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "reaction",
+        "operation": "add",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Filtrovat zprávy').first().json.channelId }}"
+        },
+        "timestamp": "={{ $('Filtrovat zprávy').first().json.slackEvent.ts }}",
+        "name": "white_check_mark"
+      },
+      "id": "slack-react-saved",
+      "name": "Slack: ✅ reakce po uložení",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [2400, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_SLACK_CREDENTIAL_ID",
+          "name": "Slack App (Socket Mode)"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack: nová zpráva": {
+      "main": [[{ "node": "Filtrovat zprávy", "type": "main", "index": 0 }]]
+    },
+    "Filtrovat zprávy": {
+      "main": [[{ "node": "Slack: Channel info", "type": "main", "index": 0 }]]
+    },
+    "Slack: Channel info": {
+      "main": [[{ "node": "Má přílohy?", "type": "main", "index": 0 }]]
+    },
+    "Má přílohy?": {
+      "main": [
+        [{ "node": "Připrav přílohy", "type": "main", "index": 0 }],
+        [{ "node": "Format → Markdown", "type": "main", "index": 0 }]
+      ]
+    },
+    "Připrav přílohy": {
+      "main": [[{ "node": "Stáhni přílohu (Slack auth)", "type": "main", "index": 0 }]]
+    },
+    "Stáhni přílohu (Slack auth)": {
+      "main": [[{ "node": "Drive: Upload přílohy", "type": "main", "index": 0 }]]
+    },
+    "Drive: Upload přílohy": {
+      "main": [[{ "node": "Aggregate přílohy", "type": "main", "index": 0 }]]
+    },
+    "Aggregate přílohy": {
+      "main": [[{ "node": "Format → Markdown", "type": "main", "index": 0 }]]
+    },
+    "Format → Markdown": {
+      "main": [[{ "node": "Drive: Save .md to INBOX/slack/", "type": "main", "index": 0 }]]
+    },
+    "Drive: Save .md to INBOX/slack/": {
+      "main": [[{ "node": "Slack: ✅ reakce po uložení", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "_NOTES_FOR_LUKAS": [
+    "VERZE S PŘÍLOHAMI — drop-in nahrazení Slack → Cowork INBOX.json.",
+    "Přidává: detekci files[], stažení přes HTTP s Slack auth (predefinedCredentialType=slackApi → znovupoužije Slack App credential), upload do stejné Drive složky, sekce ## Přílohy v .md.",
+    "Nové nody: 'Má přílohy?' (IF), 'Připrav přílohy' (Code fan-out), 'Stáhni přílohu (Slack auth)' (HTTP Request), 'Drive: Upload přílohy', 'Aggregate přílohy'.",
+    "Filename příloh: <ts>-<file.id>-<sanitized name>, kde <ts> = YYYY-MM-DD-HHmm (stejný formát jako .md). Drive ID kolize tedy nemůže nastat.",
+    "Žádný limit velikosti — timeout HTTP requestu 120 s. Pokud Slack files jsou typicky > 100 MB, zvaž ještě vyšší timeout.",
+    "Workflow přijde 'unactive' (active=false) — po importu klikni na toggle aktivace + ověř, že Workflow settings → Available in MCP zůstane zapnutý (pokud chceš MCP cestou v budoucnu).",
+    "Po importu: 1) přiřaď Slack credential (slackApi) k Slack triggeru, Channel info, HTTP downloadu i reakci. 2) přiřaď Google Drive credential. 3) nastav channelId. 4) aktivuj.",
+    "Pokud chceš místo doporučení A (stejná složka jako .md) ukládat přílohy do subfolderu, změň folderId v 'Drive: Upload přílohy'."
+  ]
+}

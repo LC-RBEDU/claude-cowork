@@ -21,14 +21,15 @@ description: "Use when user asks revize priorit, přehodnotit ICE, srovnat ASAP/
 2. (Po F8) `OBSIDIAN/00-System/agent-context.json` → top_priority list, overdue, waiting
 3. `00-System/Memory/procesy-mrluc.md` — pravidla Waiting / SSOT
 
-## Scoring (sjednoceno s Bases formula)
+## Scoring (sjednoceno s `today_priority.py` / agent-context)
 
 - `priority_score = (ice_i * ice_c) / ice_e`
-- Bonusy:
-  - +50 pokud `status` = ASAP
-  - +30 pokud overdue (`deadline < today`)
-  - +15 pokud `deadline <= today + 2d`
-- **Waiting** — nepatří do TOP 3; zkontroluj `waitUntil` a smysl
+- `today_score = priority_score + urgency_bonus`:
+  - +35 overdue (`deadline < today`)
+  - +30 deadline dnes
+  - +15 deadline zítra
+- **TOP eligibility:** ASAP vždy; Next jen bez otevřeného ASAP; nikdy Waiting/Backlog
+- **Waiting** — nepatří do TOP; zkontroluj `waitUntil` a smysl
 - **Blocked** — pokud `blocked_by != []`, označ v preview
 
 ## Preview formát
@@ -41,9 +42,9 @@ Navrhované změny (N):
   [strategy/S8] status: ASAP → Waiting, waitUntil: 2026-05-31 (důvod: čeká na Lenku)
   ...
 
-Beze změny (TOP 5 podle skóre):
-  1. [strategy/S2] Hierarchie cílů — Next, Score 8.3
-  2. [rb-universe-development/RBU30] ... — ASAP, Score 14 (po bonusu 64)
+Beze změny (TOP 5 podle today_score):
+  1. [strategy/S2] Hierarchie cílů — Next, today_score 8.3
+  2. [rb-universe-development/RBU30] ... — ASAP, today_score 64
   ...
 
 Watch — Waiting blízko expiraci (≤ 7 dnů):

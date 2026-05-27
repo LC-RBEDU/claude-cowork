@@ -50,6 +50,8 @@ Cesta: `/Users/lukascypra/My Drive (lukas@redbuttonedu.cz)/SECOND_BRAIN/OBSIDIAN
 - Otázka / čeká na odpověď → projektový hub `## Otevřené otázky`
 - Kontext bez akce → **material soubor** v `02-PROJEKTY/<slug>/materials/` nebo `05-RESOURCES/`
 
+**Single-user filter:** Capture vždy z Lukášovy perspektivy. Pokud zachycujeme cizí commitment ("Pavel udělá X"), patří jako kontext do související materiálky / `## Poznámky` u tasku, ne jako samostatný task. Lukášova reakce ("zkontrolovat, že Pavel dodá") = task ve statusu `Waiting`.
+
 ### 4. Navrhni projekt (slug)
 
 - Projdi `02-PROJEKTY/*.md` (frontmatter `slug` + `aliases`)
@@ -70,7 +72,7 @@ title: "<lidsky čitelný titulek bez ID prefixu>"
 project: "[[<HubFilename>]]"
 slug: <slug>
 aliases: [<ID>]
-status: Next | ASAP | Backlog | Waiting | Doing | Done
+status: Next | ASAP | Backlog | Waiting | Done
 ice_i: <1-10>
 ice_c: <1-10>
 ice_e: <1-10>

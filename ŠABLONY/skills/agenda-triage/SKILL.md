@@ -71,9 +71,38 @@ Pro každou položku (přímo spuštěnou v DEEP módu **nebo** auto-routnutou z
 
 1. Read sourceFile naplno (ne jen prvních pár řádků).
 2. Shrnutí 3–5 bullety: o čem to je, klíčové entity, decision points.
-3. Návrh **více tasků** + případných **materiálů** + cross-linků (`materials: [[...]]`).
+3. Návrh **více tasků** + případných **materiálů** + cross-linků (`materials: [[...]]`) — **při extrakci aplikuj Lukáš-only filter (viz níže)**.
 4. Projdi s uživatelem po jednom: OK / uprav / přeskoč / drop.
 5. Zápis task `.md` + materiál `.md` souborů; archiv source → `07-ARCHIV/inbox-processed/YYYY/MM/`.
+
+## Lukáš-only filter (vault je single-user)
+
+Vault patří **jednomu uživateli (Lukáš)**. Tasky v `02-PROJEKTY/<slug>/tasks/` jsou **operativní akce, které Lukáš sám provede / drží míček**. Ne todo list pro celou firmu, ne sumář meetingu. Aplikuj **před** přípravou návrhů (krok 3 v Deep, BATCH extrakce, i v PENDING reviewu).
+
+**Lukášův task = ano**, pokud:
+- Lukáš je commitment owner ("já udělám", "musím", "připravím", "zavolám", "potvrdím", "domluvím", "rozhodnu")
+- Lukáš je svolavatel / zodpovědný (i když exekuci deleguje — drží termín a follow-up)
+- Strategický krok, kde Lukáš drží rozhodnutí
+
+**Lukášův task = NE**, pokud:
+- Akci dělá někdo jiný (Luboš připraví, Pavel implementuje, Slávek napíše, klient dodá)
+- Je to volně zmíněná oblast bez konkrétního Lukášova kroku
+- Je to názor / postoj v diskusi bez akce
+- Jde o cizí projekt / téma, kde Lukáš jen poslouchal
+
+**Hraniční (Waiting / sledovat)** — pokud Lukáš čeká na výstup od konkrétní osoby a chce to evidovat:
+- Status: `Waiting`, `waitUntil: <date>`, title: `Sledovat: <kdo> dodá <co>`
+- Pokud je to nepodstatné nebo informace bez follow-up, vynech.
+
+**Cizí akce → kontext**, ne task:
+- Patří do `## Poznámky / log` souvisejícího Lukášova tasku, nebo do `materials/` jako záznam meetingu, nebo do `## Otevřené otázky` projektu.
+- NIKDY nevytvářej task soubor `<ID> — <Cizí osoba akce>.md`.
+
+**Preview report konvence:**
+- Pro každý nalezený signál uveď "**Drží míček:** Lukáš / Luboš / Pavel / …"
+- Tasky s "Drží míček: Lukáš" → preview k apply.
+- Ostatní → vlož do "Vyřazeno z preview (cizí míček)" sekce.
+- User pak může explicitně říct "i tenhle uložit jako Waiting" — apply pouze po konfirmaci.
 
 ## PENDING (cron)
 
@@ -125,11 +154,69 @@ Body návrhu musí mít subtasky se prefixem `**<ID>-N**` v `## Operativní krok
    - `update_task` → patchne frontmatter + append do body (CAS-aware).
    - `archive_only` → přesun source.
    - `deep_analysis` → **nikdy se neaplikuje automaticky**; přepni do DEEP flow (krok 4) pro daný `sourceFile`.
-   - Archiv batch: `00-System/Triage-Applied/`.
+   - **Archiv batch: oba soubory** — `*-batch.json` **a** `*-summary.md` se stejným prefixem (`YYYY-MM-DD-HHMM-`) přesunout z `00-System/Triage-Pending/` do `00-System/Triage-Applied/`. Nikdy nenech v Pending jen md bez JSONu (sirotek). Naming: pokud byl batch jen zavřen bez nového apply manifestu, použij sufix `-closed` (`*-batch-closed.json`, `*-summary-closed.md`).
+   - **Sanity check**: po apply zkontroluj, že `Triage-Pending/` neobsahuje žádné `*.md` ani `*.json` se starším datem než dnešek (sirotci z předchozích triage).
+
+## Hygiena tasků (RE-ID / přesun mezi projekty / přejmenování hubu)
+
+Při jakékoli z těchto operací **vždy** projeď post-flight checklist, jinak nechá vault stale references a Obsidian při otevření hodí "nespecifikovanou chybu":
+
+**1. Wikilinky v vault.** Hromadně updatni cesty / názvy:
+- `[[02-PROJEKTY/<slug>/<file>]]` → nová cesta (např. po přesunu do `materials/` / `outputs/`)
+- `[[<starý-id>]]` → `[[<nový-id>]]` po RE-ID (active i archived tasks)
+- `project: '[[<starý hub>]]'` → `project: '[[<nový hub>]]'` po přejmenování hubu (frontmatter všech tasků v `02-PROJEKTY/<slug>/tasks/` i `07-ARCHIV/tasks-done/<slug>/`)
+- `projects: ['[[<starý hub>]]']` v materials/outputs frontmatteru
+- **POZOR na kolizi basename**: nový hub filename **nesmí kolidovat** s žádným souborem v `03-AREAS/` — viz [[00-System/Templates/wikilink-convention]] sekce "Pravidlo unikátnosti basename". Pokud kolize, přejmenuj area soubor s suffixem ` (oblast)` (např. `03-AREAS/Marketing (oblast).md`) a updatuj všechny `[[03-AREAS/Marketing]]` references na `[[03-AREAS/Marketing (oblast)]]`.
+
+Použij Python skript s replace logikou (ne sed — kvůli diakritice a non-ASCII filenames).
+
+**2. Bases `kanbanState`.** `00-System/Bases/All-tasks.base` má v `kanbanState.cardOrders.note.status.<column>:` ručně přetažené pořadí karet — list cest k task souborům. Po RE-ID / přesunu / smazání tasku tam zůstanou stale references na neexistující soubory. Když Obsidian rendruje kanban a klikne na stale link, hodí "nespecifikovanou chybu".
+
+Fix: po každé migraci tasků (RE-ID, přesun, smazání) **smaž celý `kanbanState` blok** z `All-tasks.base`. Bases se vrátí na default order (`order:` + `sort:` config). Nový state si user postaví organicky přetahováním karet.
+
+```yaml
+# All-tasks.base — sekce ProjectKanban
+- type: kanban
+  name: ProjectKanban
+  filters: ...
+  groupBy: ...
+  order: ...
+  # ⬇ smaž tento blok kompletně:
+  # kanbanState:
+  #   cardOrders:
+  #     note.status:
+  #       Next:
+  #         - 02-PROJEKTY/<starý>/<task>.md
+  #         ...
+```
+
+**3. Hub frontmatter `aliases`.** Pokud přejmenováváš hub `<starý>.md` → `<nový>.md`, přidej `<starý>` do `aliases` v novém hubu — body wikilinky `[[<starý>]]` v ostatních souborech zůstanou funkční:
+
+```yaml
+aliases:
+- <slug>
+- <starý hub název>
+- <nový hub název>
+```
+
+**4. Hub sekce `## Materiály` / `## Výstupy`.** Manuální seznamy odkazů aktualizuj na nové cesty / přesuň do správné sekce (materials vs. outputs).
+
+**5. `agent-context.json`.** Přebuduj přes `python3 scripts/build_agent_context.py` (vault root).
+
+**6. Final sanity grep.** Před uzavřením operace:
+
+```bash
+# žádné staré cesty / IDs ve frontmatteru ani body
+grep -rl --include='*.md' --include='*.json' -F "[[<starý>]]" \
+  02-PROJEKTY/ 07-ARCHIV/ 00-System/
+
+# žádné stale refs v Bases
+grep -F "kanbanState" 00-System/Bases/All-tasks.base
+```
 
 ## Refresh dashboard + agent context
 
-V2 — žádný cron build pro dashboard nepotřebuje. **Bases dashboard** (`OBSIDIAN/00-System/Dashboard.md`) čte přímo z task `.md` frontmatterů.
+V2 — žádný cron build pro dashboard nepotřebuje. **Bases dashboard** (`OBSIDIAN/Dashboard.md`) čte přímo z task `.md` frontmatterů.
 
 **Po každém zápisu** (apply triage batch / commit task changes):
 

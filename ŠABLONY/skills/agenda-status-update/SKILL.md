@@ -13,7 +13,7 @@ description: "Single-task status flip in MrLUC Second Brain v2: hotovo, zruš, o
 
 - "Hotovo <ID>" / "Done <ID>" / "Uzavři <ID>"
 - "Odlož <ID> do YYYY-MM-DD" / "Čekat <ID>"
-- "ASAP <ID>" / "Urgent <ID>" / "Doing <ID>"
+- "ASAP <ID>" / "Urgent <ID>"
 - "Zruš <ID>" / "Cancel <ID>"
 
 ## Workflow
@@ -48,7 +48,6 @@ Mapping user intent → frontmatter změna:
 | "hotovo" / "done" | `status: Done`, `updated: <today>`, body append `## Poznámky / log\n- <today>: Done — <důvod, pokud řekl>` |
 | "hotovo PD4-3" | flip checkbox `**PD4-3**` v `## Operativní kroky` na `[x]` (single subtask) |
 | "ASAP" / "urgent" | `status: ASAP`, `updated: <today>` |
-| "doing" / "rozdělaný" | `status: Doing`, `updated: <today>` |
 | "odlož do YYYY-MM-DD" | `status: Waiting`, `waitUntil: <date>`, `updated: <today>` |
 | "ztím čekat" (bez data) | `status: Waiting`, `waitUntil: <today + 3 dny>`, `updated: <today>` |
 | "zruš" / "cancel" | Confirm s userem; pak smazat soubor (NE archive) |

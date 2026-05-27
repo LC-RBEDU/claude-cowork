@@ -19,21 +19,30 @@ description: "Use when user asks 'co teď', 'co dnes', 'na co se mám zaměřit'
 
 V2 priority pořadí:
 
-1. **`OBSIDIAN/00-System/agent-context.json`** (PRIMARY) — pre-rendered `top_priority` (top 15), `recently_done`, `upcoming_deadlines`, `recurring_pending`, `blocked_by_graph`. Pokud `generated_at` je starší než 24 h, spusť `python3 scripts/build_agent_context.py` před analýzou.
-2. Fallback: parsuj všechny `OBSIDIAN/02-PROJEKTY/<slug>/tasks/*.md` frontmattery (file-per-task)
-3. Backup: `OBSIDIAN/00-System/Dashboard.md` Bases embedy ukazují totéž — agent může otevřít
+1. **`OBSIDIAN/00-System/agent-context.json`** (PRIMARY) — `top_priority_today` (TOP dnes, max 5), `top_priority` (max 15), `recently_done`, `upcoming_deadlines`, `recurring_pending`, `blocked_by_graph`, `priority_rules`. Pokud `generated_at` je starší než 24 h, spusť `python3 scripts/build_agent_context.py` před analýzou.
+2. Fallback: parsuj všechny `OBSIDIAN/02-PROJEKTY/<slug>/tasks/*.md` frontmattery + aplikuj stejná pravidla jako `vps/second-brain-hub/lib/today_priority.py`
+3. Backup: `OBSIDIAN/Dashboard.md` Bases embedy (aproximace — SSOT je agent-context)
 
-## Klasifikuj (z frontmatter status + deadline + waitUntil + ice)
+## TOP priority dnes (SSOT: `top_priority_today`)
+
+**Eligibility** (nikdy porušit):
+- **Nikdy:** `Waiting`, `Backlog`, `Done`
+- **ASAP:** vždy eligible
+- **Next:** jen když v celém vaultu **není žádný** otevřený `ASAP`
+
+**Scoring:**
+- `priority_score = (ice_i * ice_c) / ice_e`
+- `today_score = priority_score + urgency_bonus`:
+  - **+35** overdue (`deadline < dnes`)
+  - **+30** deadline dnes
+  - **+15** deadline zítra
+- Sort: `today_score DESC`
+
+## Ostatní klasifikace
 
 - **PO TERMÍNU**: `deadline` < dnes && `status != Done`
 - **DNES**: `deadline` = dnes
-- **ASAP / Doing**: `status` = ASAP nebo Doing
-- **TOP podle ICE**: `priority_score = (ice_i * ice_c) / ice_e` + bonusy:
-  - +50 pokud `status` = ASAP
-  - +30 pokud overdue
-  - +15 pokud `deadline <= dnes + 2 dnů`
-  - **bez Waiting**
-- **WAITING**: `status = Waiting` && `waitUntil >= dnes` — zobraz zvlášť
+- **WAITING**: `status = Waiting` && `waitUntil >= dnes` — zobraz zvlášť, **nikdy v TOP**
 - **BLOKOVANÉ**: `blocked_by != []` — kromě "nic"
 
 ## Vrať dashboard
@@ -43,8 +52,8 @@ V2 priority pořadí:
 CO TEĎ — DD/MM/YYYY
 ═══════════════════════════════════════════════
 
-🔥 TOP 3 (z agent-context / ICE)
-  • [slug/ID] název — status=ASAP deadline=…
+🔥 TOP 3 (z `top_priority_today`, sort today_score)
+  • [slug/ID] název — status=ASAP today_score=… deadline=…
   ...
 
 ⏸ WAITING (N)
@@ -74,6 +83,7 @@ Příkazy: ukliď | detail <slug> | revize priorit
 ## Pravidla
 
 - Nikdy neukládej bez explicitního příkazu
-- Waiting nikdy v TOP 3
+- Waiting / Backlog **nikdy** v TOP (ani v `top_priority_today`, ani v `top_priority`)
 - Cesty: `02-PROJEKTY/<slug>/tasks/` (ne `AGENDA/`, ne H3 v hubu)
 - Bases dashboard (`Dashboard.md`) je pro user oko, agent ho čte přes frontmatter parser
+- **Vault je single-user (Lukáš).** Co teď zobrazuje **Lukášovy priority** — všechny tasky v `02-PROJEKTY/<slug>/tasks/` jsou Lukášovy operativní akce (žádný explicit `owner` field, jeden majitel vault). Pokud task "Sledovat: <kdo> dodá <co>" má status `Waiting`, patří do sekce WAITING, ne do TOP 3.
